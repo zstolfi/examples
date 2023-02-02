@@ -1,2 +1,1 @@
-# examples
 Misc. code snippets
