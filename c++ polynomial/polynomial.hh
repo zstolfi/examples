@@ -13,7 +13,10 @@ constexpr T pow(T a, unsigned b) {
 }
 
 class Polynomial {
+public:
 	using scalar = double;
+	
+private:
 	std::vector<scalar> data = {0};
 
 private:
@@ -142,6 +145,9 @@ Polynomial operator - (Polynomial a, const Polynomial& b)
 
 Polynomial operator * (Polynomial a, const Polynomial& b)
 	{ a *= b; return a; }
+
+Polynomial operator / (Polynomial a, Polynomial::scalar n)
+	{ a /= n; return a; }
 
 /* PRINTING */
 std::ostream& operator << (std::ostream& os, const Polynomial& p) {
