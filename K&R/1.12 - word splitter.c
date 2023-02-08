@@ -1,24 +1,11 @@
 #include <stdio.h>
 
-#define IN  1	/* inside a word */
-#define OUT 0	/* outside a word */
-
-/* count lines, words, and characters in input */
+/* print input one word per line */
 main () {
-	int c, nl, nw, nc, state;
-
-	state = OUT;
-	nl = nw = nc = 0;
+	int c;
 	while ((c = getchar()) != EOF) {
-		++nc;
-		if (c == '\n')
-			++nl;
-		if (c == ' ' || c == '\n' || c == '\t')
-			state = OUT;
-		else if (state == OUT) {
-			state = IN;
-			++nw;
-		}
+		/**/ if (c == ' ' ) { putchar('\n'); }
+		else if (c == '\n') { putchar('\n'); }
+		else /*          */ { putchar(c);    }
 	}
-	printf("lines:\t%d\n" "words:\t%d\n" "chars:\t%d\n", nl, nw, nc);
 }
