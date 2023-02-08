@@ -3,6 +3,9 @@
 /* copy input to output; 2nd version */
 main() {
 	int c;
-	while ((c = getchar()) != EOF) 
-		putchar(c);
+	while (1) {
+		c = getchar();
+		printf("%d", c != EOF);
+		if (c == EOF) { break; }
+	}
 }

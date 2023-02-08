@@ -1,13 +1,34 @@
 #include <stdio.h>
 
 main() {
-	int c;
-	int prev = -1;
-	while ((c = getchar()) != EOF) {
-		if ((c == ' ' && prev != ' ') || c != ' ') {
-			putchar(c);
-		}
+	enum {
+		WORDS, FIRST_SPACE, SPACES
+	} state = WORDS;
 
-		prev = c;
+	int c;
+	while ((c = getchar()) != EOF) {
+		switch (state) {
+		case WORDS:
+			if (c == ' ') { state = FIRST_SPACE; }
+			putchar(c);
+			break;
+		case FIRST_SPACE:
+			if (c == ' ') {
+				state = SPACES;
+				/* print nothing */
+			} else {
+				state = WORDS;
+				putchar(c);
+			}
+			break;
+		case SPACES:
+			if (c == ' ') {
+				/* print nothing */
+			} else {
+				state = WORDS;
+				putchar(c);
+			}
+			break;
+		}
 	}
 }
