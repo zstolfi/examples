@@ -1,6 +1,10 @@
 #include <stdio.h>
+#include <math.h>
 
 #define MAX_VALUE 20
+/* allow for different plotting functions */
+#define plot(x) (x)
+//#define plot(x) (4.4*log(2*x)-2)
 
 void printHistogram(int h[128]);
 
@@ -21,7 +25,7 @@ void printHistogram(int h[128]) {
 	// vertical histogram
 	for (int y=MAX_VALUE; y >= 1; y--) {
 		for (int x=32; x <= 126; x++) {
-			putchar((y <= h[x]) ? '#' : ' ');
+			putchar((y <= plot(h[x])) ? '#' : ' ');
 		}
 		putchar('\n');
 	}
