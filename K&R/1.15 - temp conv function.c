@@ -1,12 +1,16 @@
-/* Exercise 1-3.
-	Modify the temperature conversion program to print a
-	heading above the title.
+/* Exercise 1-15.
+	Rewrite the temperature conversion program of Section 1.2
+	to use a function for conversion.
 */
 
 #include <stdio.h>
 
 /* print Farenheit-Celsius table
-    for fahr = 0, 20, ..., 300; floating-point version*/
+    for fahr = 0, 20, ..., 300; function version*/
+float fahrToCelsius(float fahr) {
+	return (5.0/9.0) * (fahr-32.0);
+}
+
 main() {
 	float fahr, celsius;
 	int lower, upper, step;
@@ -19,7 +23,7 @@ main() {
 
 	fahr = lower;
 	while (fahr <= upper) {
-		celsius = (5.0/9.0) * (fahr-32.0);
+		celsius = fahrToCelsius(fahr);
 		printf("%3.0f %6.1f\n", fahr, celsius);
 		fahr = fahr + step;
 	}

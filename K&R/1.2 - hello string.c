@@ -4,8 +4,11 @@
 	messages you get.
 */
 
+/*
+	Not much happens. But the bell character is pretty cool.
+*/
 #include <stdio.h>
 
 main() {
-	printf("hello, world\n");
+	printf("hello,\a world\n");
 }
