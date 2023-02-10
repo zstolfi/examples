@@ -25,6 +25,7 @@ int main() {
 	for (int len; (len = getline(line, MAXLINE)) > 0; ) {
 		// remove possible ending \n
 		if (line[len-1] == '\n') { line[len-1] = '\0'; }
+		len--;
 		reverse(line);
 		printf("%s\n", line);
 	}
