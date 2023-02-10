@@ -12,18 +12,18 @@
 
 typedef enum { false = 0, true = 1 } bool;
 
-void clearline(char str[], int len);
 /* Get Line: doesn't include '\n' at the end of strings */
 /*           and returns true iff EOF is detected       */
 bool getline(char str[], int lim, int* length);
+void clearline(char str[], int len);
 
 void detab(char in[], int len, char out[], int lim, const int n) {
 	for (int i=0, j=0; i < len; i++, j++) {
 		if (in[i] != '\t') {
 			out[j] = in[i];
 		} else {
-			int tabCount = n - j % n;
-			while (tabCount--) { out[j++] = ' '; }
+			int tabWidth = n - j % n;
+			while (tabWidth--) { out[j++] = ' '; }
 			j--;
 		}
 	}
