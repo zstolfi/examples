@@ -10,15 +10,20 @@
 #include <limits.h>
 
 int main() {
-	// 25 as a placeholder
-	#define Temp_Init(TYPE) \
-		unsigned TYPE u##TYPE##Min = 25, u##TYPE##Max = 25; \
-		signed TYPE TYPE##Min = 25, TYPE##Max = 25;
+	// OK... naive way. (works for small values)
+	// O(n) time
+	unsigned char ucharMin = 0, ucharMax = 0, next_uchar;
+	signed char charMin = 0, charMax = 0, next_char;
+	next_uchar = ucharMax; while (++next_uchar >  0) { ucharMax++; }
+	next_char  = charMin;  while (--next_char  <  0) { charMin--;  }
+	next_char  = charMax;  while (++next_char  >= 0) { charMax++;  }
 
-	Temp_Init(char);
-	Temp_Init(short);
-	Temp_Init(int);
-	Temp_Init(long);
+	unsigned short ushortMin = 0, ushortMax = 0, next_ushort;
+	signed short shortMin = 0, shortMax = 0, next_short;
+	next_ushort = ushortMax; while (++next_ushort >  0) { ushortMax++; }
+	next_short  = shortMin;  while (--next_short  <  0) { shortMin--;  }
+	next_short  = shortMax;  while (++next_short  >= 0) { shortMax++;  }
+
 
 
 	printf("x~~~~~~~~~~~~x\n");
@@ -39,23 +44,23 @@ int main() {
 	printf("signed computed  :\t%hd - %hd\n", shortMin, shortMax);
 	printf("\n");
 
-	printf("x~~~~~~~~~~~x\n");
-	printf("|    INT    |\n");
-	printf("x~~~~~~~~~~~x\n");
-	printf("unsigned         :\t%u - %u\n", (unsigned int)0, UINT_MAX);
-	printf("unsigned computed:\t%u - %u\n", uintMin, uintMax);
-	printf("signed           :\t%d - %d\n", INT_MIN, INT_MAX);
-	printf("signed computed  :\t%d - %d\n", intMin, intMax);
-	printf("\n");
+	// printf("x~~~~~~~~~~~x\n");
+	// printf("|    INT    |\n");
+	// printf("x~~~~~~~~~~~x\n");
+	// printf("unsigned         :\t%u - %u\n", (unsigned int)0, UINT_MAX);
+	// printf("unsigned computed:\t%u - %u\n", uintMin, uintMax);
+	// printf("signed           :\t%d - %d\n", INT_MIN, INT_MAX);
+	// printf("signed computed  :\t%d - %d\n", intMin, intMax);
+	// printf("\n");
 
-	printf("x~~~~~~~~~~~~x\n");
-	printf("|    LONG    |\n");
-	printf("x~~~~~~~~~~~~x\n");
-	printf("unsigned         :\t%lu - %lu\n", (unsigned long)0, ULONG_MAX);
-	printf("unsigned computed:\t%lu - %lu\n", ulongMin, ulongMax);
-	printf("signed           :\t%ld - %ld\n", LONG_MIN, LONG_MAX);
-	printf("signed computed  :\t%ld - %ld\n", longMin, longMax);
-	printf("\n");
+	// printf("x~~~~~~~~~~~~x\n");
+	// printf("|    LONG    |\n");
+	// printf("x~~~~~~~~~~~~x\n");
+	// printf("unsigned         :\t%lu - %lu\n", (unsigned long)0, ULONG_MAX);
+	// printf("unsigned computed:\t%lu - %lu\n", ulongMin, ulongMax);
+	// printf("signed           :\t%ld - %ld\n", LONG_MIN, LONG_MAX);
+	// printf("signed computed  :\t%ld - %ld\n", longMin, longMax);
+	// printf("\n");
 
 	return 0;
 }
