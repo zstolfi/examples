@@ -12,12 +12,15 @@
 int main() {
 	// OK... naive way. (works for small values)
 	// O(n) time
+
+	/* CHAR */
 	unsigned char ucharMin = 0, ucharMax = 0, next_uchar;
 	signed char charMin = 0, charMax = 0, next_char;
 	next_uchar = 0; while (++next_uchar >  0) { ucharMax++; }
 	next_char  = 0; while (--next_char  <  0) { charMin--;  }
 	next_char  = 0; while (++next_char  >= 0) { charMax++;  }
 
+	/* SHORT */
 	unsigned short ushortMin = 0, ushortMax = 0, next_ushort;
 	signed short shortMin = 0, shortMax = 0, next_short;
 	next_ushort = 0; while (++next_ushort >  0) { ushortMax++; }
@@ -37,7 +40,7 @@ int main() {
 	    s2 = step/2; \
 	    step = (s2 < step) ? s2 : 0;
 
-
+	/* INT */
 	unsigned int uintMin = 0, uintMax = 0, next_uint;
 	signed int intMin = 0, intMax = 0, next_int;
 	next_uint = 0;
@@ -55,7 +58,37 @@ int main() {
 		decreaseStep();
 	} while (step > 0);
 
+	next_int = 0;
+	step = 1;
+	do {
+		intMax = next_int;
+		next_int += step;
+		increaseStep();
+	} while (next_int > intMax);
+	do {
+		next_int = intMax;
+		while ((next_int += step) > intMax) {
+			intMax = next_int;
+		}
+		decreaseStep();
+	} while (step > 0);
 
+	next_int = 0;
+	step = 1;
+	do {
+		intMin = next_int;
+		next_int -= step;
+		increaseStep();
+	} while (next_int < intMin);
+	do {
+		next_int = intMin;
+		while ((next_int -= step) < intMin) {
+			intMin = next_int;
+		}
+		decreaseStep();
+	} while (step > 0);
+
+	/* LONG */
 	unsigned long ulongMin = 0, ulongMax = 0, next_ulong;
 	signed long longMin = 0, longMax = 0, next_long;
 	next_ulong = 0;
@@ -69,6 +102,37 @@ int main() {
 		next_ulong = ulongMax;
 		while ((next_ulong += step) > ulongMax) {
 			ulongMax = next_ulong;
+		}
+		decreaseStep();
+	} while (step > 0);
+
+	// bleh, duplicate code :(
+	next_long = 0;
+	step = 1;
+	do {
+		longMax = next_long;
+		next_long += step;
+		increaseStep();
+	} while (next_long > longMax);
+	do {
+		next_long = longMax;
+		while ((next_long += step) > longMax) {
+			longMax = next_long;
+		}
+		decreaseStep();
+	} while (step > 0);
+
+	next_long = 0;
+	step = 1;
+	do {
+		longMin = next_long;
+		next_long -= step;
+		increaseStep();
+	} while (next_long < longMin);
+	do {
+		next_long = longMin;
+		while ((next_long -= step) < longMin) {
+			longMin = next_long;
 		}
 		decreaseStep();
 	} while (step > 0);
