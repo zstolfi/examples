@@ -49,6 +49,8 @@ int main() {
 
 	printf("start\n");
 
+	// this is the point where I discovered C doesn't have
+	// function overloading
 	squeeze1(a, a1);
 	printf("%s\n", a);
 
