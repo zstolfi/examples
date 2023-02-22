@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 #define WIDTH 64    	/* characters per row */
-#define MAX_WORD 100	/* max word length */
+#define MAX_WORD 500	/* max word length */
 
 /*  Storing the next character gives us room to make decisions
  *  without eating up the character. 
@@ -21,7 +21,7 @@ int peek();	/* reads the 'next' char, without modifying */
 /*  In this program, character input is categorized by 'tokens'
  *  a string of non-whitespace is a WORD token, a string of all
  *  whitespace is a SPACE token. NEW_LINE is any string of 1 or
- *  more new-lines. END acts like EOF, where has a length of 0.
+ *  more new-lines. END acts like EOF, so it has a length of 0.
  */
 enum token { WORD, SPACE, NEW_LINE, END };
 enum token getWord(char str[], int lim, int* lengthOut );
@@ -47,15 +47,27 @@ int main() {
 		x += len;
 		if (x <= WIDTH) {
 			printf("%s", word);
+			continue;
+		}
 
-		} else /*x > WIDTH*/ {
-			if (type == WORD) {
-				printf("\n%s", word);
-				x = len;
-			} else if (type == SPACE) {
-				printf("\n");
-				x = 0;
+		/* x > WIDTH */
+		if (type == WORD && len > WIDTH) {
+			/* space left on 1st line */
+			int offset = WIDTH - (x-len);
+			printf("%.*s\n", offset, word);
+			int n = (len-offset-1) / WIDTH + 1;
+			for (int i=0; i < n; i++) {
+				printf("%.*s", WIDTH, word + i*WIDTH + offset);
+				if (i+1 < n) { putchar('\n'); }
 			}
+			x = (len - offset) % WIDTH;
+
+		} else if (type == WORD) {
+			printf("\n%s", word);
+			x = len;
+		} else if (type == SPACE) {
+			printf("\n");
+			x = 0;
 		}
 	}
 
@@ -81,7 +93,7 @@ enum token getType(char c) {
 }
 
 enum token getWord(char str[], int lim, int* lengthOut) {
-	if (peek() == EOF) { lengthOut = 0; return END; }
+	if (peek() == EOF) { *lengthOut = 0; return END; }
 
 	enum token type = getType(peek());
 
