@@ -10,6 +10,7 @@ void escape(char s[], char t[]) {
 	int i, j=0;
 	for (int i=0; t[i] != '\0'; i++) {
 		switch (t[i]) {
+		/* only support n,t,r,b... seems fair enough */
 		case '\n':
 			s[j++] = '\\'; s[j++] = 'n';
 			break;
@@ -38,15 +39,20 @@ void unescape(char s[], char t[]) {
 #include <stdio.h>
 #define MAX_LINE 1000
 
-int main() {
-	char a[MAX_LINE] = "Test C string\t\tThis  text\nhas one or two lines.";
-	char a_esc[MAX_LINE];
+typedef char testStr[2][MAX_LINE];
 
-	escape(a, a_esc);
+void printTest(testStr s) {
+	escape(s[1], s[0]);
 
 	printf("raw:    \t'%s'\n"
 	       "escaped:\t'%s'\n",
-	       a, a_esc);
+	       s[0], s[1]);
+}
+
+int main() {
+	testStr a = { "Test C string\t\tThis  text\nhas one or two lines." };
+
+	printTest(a);
 
 	return 0;
 }
