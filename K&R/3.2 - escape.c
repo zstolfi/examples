@@ -8,7 +8,7 @@
 
 void escape(char s[], char t[]) {
 	int i, j=0;
-	for (int i=0; t[i] != '\0'; i++) {
+	for (i=0; t[i] != '\0'; i++) {
 		switch (t[i]) {
 		/* only support \,n,t,r,b... seems fair enough */
 		case '\\':
@@ -34,7 +34,33 @@ void escape(char s[], char t[]) {
 }
 
 void unescape(char s[], char t[]) {
-	
+	int i, j=0;
+	for (i=0; t[i] != '\0'; i++) {
+		if (t[i] == '\\') {
+			switch(t[i+1]) {
+			case '\\':
+				s[j++] = '\\'; i++;
+				break;
+			case 'n':
+				s[j++] = '\n'; i++;
+				break;
+			case 't':
+				s[j++] = '\t'; i++;
+				break;
+			case 'r':
+				s[j++] = '\r'; i++;
+				break;
+			case 'b':
+				s[j++] = '\b'; i++;
+				break;
+
+			default: s[j++] = '\\';
+			}
+		} else {
+			s[j++] = t[i];
+		}
+	}
+	s[j] = '\0';
 }
 
 
@@ -65,7 +91,7 @@ void printTest2(testStr s) {
 
 int main() {
 	testStr a = { "Test C string\t\tThis  text\nhas one or two lines." };
-	testStr b = { "1: \\ 2: \\\\ 3: \\\\\\ 4: \\\\\\\\" };
+	testStr b = { "1: \\ 2: \\\\ 3: \\\\\\ 4: \\\\\\\\ 5: \\\\\\\\\\" };
 	testStr c = { "       /\\       \n"
 	              "      /\\/\\      \n"
 	              "     /\\  /\\     \n"
@@ -77,13 +103,15 @@ int main() {
 	testStr d = { "\tThis program takes strings (ex: \"Hello,\\tworld!\")\n"
 	              "\tand decodes the slashes into their un-escaped meaning\n"
 	              "\tor it prints the string as it appears in the source file." };
-	testStr e = { "\"Hello,\\tworld!\\n\" ... \"Backticks (\\\\) are amazing!\"" };
-	testStr f = { "\\s is not a valid escape sequence." };
+	testStr e = { "\"Hello,\\tworld!\"\\n ... \"Backticks (\\\\) are amazing!\"" };
+	testStr f = { "'\\s' is not a valid escape sequence.\n"
+	              "'\\t' is a valid escape sequence." };
 
 	printTest1(a);
 	printTest1(b);
 	printTest1(c);
 
+	printTest2(b);
 	printTest2(d);
 	printTest2(e);
 	printTest2(f);
