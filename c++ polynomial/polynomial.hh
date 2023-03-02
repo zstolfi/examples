@@ -12,11 +12,8 @@ constexpr T pow(T a, unsigned b) {
 	return result;
 }
 
+template <typename scalar>
 class Polynomial {
-public:
-	using scalar = double;
-	
-private:
 	std::vector<scalar> data = {0};
 
 private:
@@ -65,13 +62,21 @@ public:
 
 
 	/* UNARY MINUS */
-	Polynomial& operator - () {
+	Polynomial<scalar>& operator - () {
 		for (auto& c : data) { c = -c; }
 		return *this;
 	}
 
 	/* ADDITION */
-	Polynomial& operator += (const Polynomial& that) {
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator += (const T n) {
+		data[0] += n;
+		clean();
+		return *this;
+	}
+
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator += (const Polynomial<T>& that) {
 		const auto& thatData = that.raw();
 		if (that.degree() > this->degree()) {
 			this->data.resize(thatData.size());
@@ -84,7 +89,15 @@ public:
 	}
 
 	/* SUBTRACTION */
-	Polynomial& operator -= (const Polynomial& that) {
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator -= (const T n) {
+		data[0] -= n;
+		clean();
+		return *this;
+	}
+
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator -= (const Polynomial<T>& that) {
 		const auto& thatData = that.raw();
 		if (that.degree() > this->degree()) {
 			this->data.resize(thatData.size());
@@ -97,7 +110,8 @@ public:
 	}
 
 	/* MULTIPLICATION */
-	Polynomial& operator *= (const scalar n) {
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator *= (const T n) {
 		for (auto& c : data) {
 			c *= n;
 		}
@@ -105,7 +119,8 @@ public:
 		return *this;
 	}
 
-	Polynomial& operator *= (const Polynomial& that) {
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator *= (const Polynomial<T>& that) {
 		unsigned degA = this->degree(), degB = that.degree();
 		auto  thisData = this->data; // must be a copy
 		auto& thatData = that.raw();
@@ -127,8 +142,9 @@ public:
 	}
 
 	/* DIVISION */
-	Polynomial& operator /= (const scalar n) {
-		*this *= 1/n;
+	template <typename T> requires std::convertible_to<T,scalar>
+	Polynomial<scalar>& operator /= (const T n) {
+		*this *= 1.0/n;
 		return *this;
 	}
 
@@ -137,20 +153,53 @@ public:
 };
 
 /* BINARY OPERATORS */
-Polynomial operator + (Polynomial a, const Polynomial& b)
+// Poly + n
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator + (Polynomial<T> a, const U b)
+	{ a += b; return a; }
+// n + Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator + (const U b, Polynomial<T> a)
+	{ a += b; return a;}
+// Poly + Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator + (Polynomial<T> a, const Polynomial<U>& b)
 	{ a += b; return a; }
 
-Polynomial operator - (Polynomial a, const Polynomial& b)
+// Poly - n
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator - (Polynomial<T> a, const U b)
+	{ a -= b; return a; }
+// n - Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator - (const U b, Polynomial<T> a)
+	{ a -= b; return a;}
+// Poly - Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator - (Polynomial<T> a, const Polynomial<U>& b)
 	{ a -= b; return a; }
 
-Polynomial operator * (Polynomial a, const Polynomial& b)
+// Poly * n
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator * (Polynomial<T> a, const U b)
+	{ a *= b; return a; }
+// n * Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator * (const U b, Polynomial<T> a)
+	{ a *= b; return a;}
+// Poly * Poly
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator * (Polynomial<T> a, const Polynomial<U>& b)
 	{ a *= b; return a; }
 
-Polynomial operator / (Polynomial a, Polynomial::scalar n)
-	{ a /= n; return a; }
+// Poly / n
+template <typename T, typename U> requires std::convertible_to<U,T>
+Polynomial<T> operator / (Polynomial<T> a, const U b)
+	{ a /= b; return a; }
 
 /* PRINTING */
-std::ostream& operator << (std::ostream& os, const Polynomial& p) {
+template <typename T>
+std::ostream& operator << (std::ostream& os, const Polynomial<T>& p) {
 	const auto& data = p.raw();
 
 	if (data.size() == 1) { os << data[0]; return os; }
@@ -168,4 +217,4 @@ std::ostream& operator << (std::ostream& os, const Polynomial& p) {
 	return os;
 }
 
-Polynomial x = {0,1};
+Polynomial<double> x = {0,1};
