@@ -1,6 +1,8 @@
 #include "Polynomial.hh"
 #include <iostream>
 
+static const Polynomial<double> x = {0,1};
+
 int main() {
 	std::cout << (5 + 3*x*x*x*x) << "\n";
 	std::cout << (-2*x + pow(1 + 3*x*x, 2)) << "\n";

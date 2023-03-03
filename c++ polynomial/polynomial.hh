@@ -217,4 +217,5 @@ std::ostream& operator << (std::ostream& os, const Polynomial<T>& p) {
 	return os;
 }
 
-Polynomial<double> x = {0,1};
+// // Example usage:
+// Polynomial<double> x = {0,1};
