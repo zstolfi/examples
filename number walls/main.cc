@@ -104,11 +104,14 @@ public:
 
 
 #include <gmpxx.h>
+#include "fib.hh"
 using INT = mpz_class;
+
 
 int main() {
 	NumberWall<INT> squares {
-		[](auto n) -> INT { return n*n; } ,
+		// [](auto n) -> INT { return n*n; } ,
+		[](auto n) -> INT { return Fib(n); } ,
 		5 ,
 		10, 5
 	};
