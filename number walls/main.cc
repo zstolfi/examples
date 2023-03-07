@@ -2,17 +2,20 @@
 #include <vector>
 #include <functional>
 #include <optional>
-// #include <mdspan>
 #include <cassert>
 
 #include <cmath>
 #include <algorithm>
+#include <gmpxx.h> // Use GMP ratio type for now
+                   // For generic number walls, I'll
+                   // need my own ratio type
 
 template <typename T>
 class NumberWall {
 private:
 	using brick = std::optional<T>; // haha, bricks, get it? :^)
-	struct window { int size, m, n; };
+	using RATIO = mpq_class;
+	struct window { int size, m, n; struct ratios { std::optional<RATIO> a, b, c, d; } };
 	std::function<T(int)> sequence {};
 	std::vector<brick> wall {};
 
@@ -24,10 +27,16 @@ private:
 	// std::vector<window> partialZeroWindows {};
 
 public:
-	NumberWall(std::function<T(int)> s, int x, unsigned w, unsigned h)
-	: sequence{s}, w{w}, h{h}
-	, x0{x}, x1 {x+w}
-	, y0{0}, y1 {0+h}  {
+	// The width & height in the constructor is the space we want
+	// to be filled, to get there we need to start wider, and the
+	// edges will diagonally shrink, ending in the desired width.
+
+	NumberWall(std::function<T(int)> s, int x, unsigned _w, unsigned _h)
+	: sequence{s}, w{2*_h + _w}, h{_h}
+	, x0{static_cast<int>(x-_h)}, x1{static_cast<int>(x+_w+_h)}
+	, y0{static_cast<int>(0   )}, y1{static_cast<int>(0+_h   )}  {
+		std::cout << "Constructing with desired width of " << _w << "\n"
+		          << "Internal width calculated as " << w << "\n";
 		wall.resize(w*h, std::nullopt);
 	}
 
@@ -43,16 +52,16 @@ public:
 		#define Print_Check() \
 			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
 			print();
-		Print_Check();
+
 		// setup
 		for (int n=x0; n < x1; n++)
 			wall[n-x0] = sequence(n);
-		Print_Check();
 
 		int prevCount = 0;
 		int count = numCount();
 		do {
 			prevCount = count;
+			Print_Check();
 
 			iterate([&](int m, int n) {
 				crossRule(m, n);
@@ -67,7 +76,6 @@ public:
 				}
 			}
 
-			Print_Check();
 			count = numCount();
 		} while (count > prevCount);
 		#undef Print_Check
@@ -104,11 +112,12 @@ private:
 		#undef c
 	}
 
-	void longCrossRule(int m, int n) {
-		brick _a0 = get(m-1, n);	brick _a1 = get(m+2, n);
-		brick _b0 = get(m+1, n);	brick _b1 = get(m-2, n);
-		brick _c0 = get(m, n-1);	brick _c1 = get(m, n+2);
-		brick _d0 = get(m, n+1);	brick _d1 = get(m, n-2);
+	void zeroCrossRule(window win) {
+		if (win.size > 1) { return; }
+		brick _a0 = get(m-1, n);    brick _a1 = get(m+2, n);
+		brick _b0 = get(m+1, n);    brick _b1 = get(m-2, n);
+		brick _c0 = get(m, n-1);    brick _c1 = get(m, n+2);
+		brick _d0 = get(m, n+1);    brick _d1 = get(m, n-2);
 		#define a0 (*_a0)
 		#define a1 (*_a1)
 		#define b0 (*_b0)
@@ -120,10 +129,10 @@ private:
 
 		if (!_a0 + !_a1 + !_b0 + !_b1
 		+   !_c0 + !_c1 + !_d0 + !_d1 == 1) {
-			/**/ if (!_a1 && a0 != 0) { set(m+2, n, T{ (-b0*b0*b1 + c0*c0*c1 + d0*d0*d1) / (a0*a0) }); }
-			else if (!_b1 && b0 != 0) { set(m-2, n, T{ (-a0*a0*a1 + c0*c0*c1 + d0*d0*d1) / (b0*b0) }); }
-			else if (!_c1 && c0 != 0) { set(m, n+2, T{ (-d0*d0*d1 + a0*a0*a1 + b0*b0*b1) / (c0*c0) }); }
-			else if (!_d1 && d0 != 0) { set(m, n-2, T{ (-c0*c0*c1 + a0*a0*a1 + b0*b0*b1) / (d0*d0) }); }
+			/**/ if (!_a1) { set(m+2, n, T{ (-b0*b0*b1 + c0*c0*c1 + d0*d0*d1) / (a0*a0) }); }
+			else if (!_b1) { set(m-2, n, T{ (-a0*a0*a1 + c0*c0*c1 + d0*d0*d1) / (b0*b0) }); }
+			else if (!_c1) { set(m, n+2, T{ (-d0*d0*d1 + a0*a0*a1 + b0*b0*b1) / (c0*c0) }); }
+			else if (!_d1) { set(m, n-2, T{ (-c0*c0*c1 + a0*a0*a1 + b0*b0*b1) / (d0*d0) }); }
 		}
 
 		#undef a0
@@ -135,6 +144,44 @@ private:
 		#undef d0
 		#undef d1
 	}
+
+	void zeroGeometricRule(window win) {
+		std::vector<brick> a {};    a.resize(win.size + 2);
+		std::vector<brick> b {};    b.resize(win.size + 2);
+		std::vector<brick> c {};    c.resize(win.size + 2);
+		std::vector<brick> d {};    d.resize(win.size + 2);
+		for (unsigned i=0; i < win.size + 2; i++) {
+			a[i] = get(win.m-1          , win.n-1        +i);
+			c[i] = get(win.m-1        +i, win.n-1          );
+			b[i] = get(win.m+win.size   , win.n+win.size -i);
+			d[i] = get(win.m+win.size -i, win.n+win.size   );
+		}
+
+
+		for (auto* vec : {&a, &b, &c, &d}) {
+			// Iterate through odd-spaced pairs, even-spaced
+			// pairs would give us 2 roots, as opposed to 1.
+			unsigned pow;
+			RATIO r;
+			for (unsigned i=0; i < vec.size()-1; i++) {
+			for (unsigned j=i+1; j < vec.size(); j += 2) {
+				if ((*vec)[i] && (*vec)[j]) {
+					pow = j-i;
+					r = RATIO {*(*vec)[j], *(*vec)[i]}; // dereference, subscript, opt_dereference
+					r.canonicalize();
+					goto done;
+				}
+			} }
+			done:
+
+			mpz_root(r.get_num_mpz_t(), r.get_num_mpz_t(), pow);
+			mpz_root(r.get_den_mpz_t(), r.get_den_mpz_t(), pow);
+		}
+	}
+
+	// The horseshoe rule is really just the previous 2 rules combined into one.
+	// In my code they're independent of one another. And the long cross rule is
+	// a specialization of the zero cross rule. (so no extra code for that case)
 
 	void findZeroWindows() {
 		zeroWindows.clear();
@@ -208,11 +255,11 @@ public:
 	/* Print Functions */
 	void print() {
 		for (unsigned i=0; i < h; i++) {
-			for (unsigned j=0; j < w; j++) {
+			for (unsigned j=h; j < w-h; j++) {
 				if (auto value = wall[i*w+j]) {
 					std::cout << *value;
 				} else {
-					std::cout << "*";
+					std::cout << ".";
 				}
 				if (j+1 <= w) { std::cout << "\t"; }
 			}
@@ -222,9 +269,9 @@ public:
 
 	void printPattern(std::function<bool(T)> f) {
 		for (unsigned i=0; i < h; i++) {
-			for (unsigned j=0; j < w; j++) {
+			for (unsigned j=h; j < w-h; j++) {
 				if (auto value = wall[i*w+j]; value && f(*value)) {
-					std::cout << "##";
+					std::cout << "[]";
 				} else {
 					std::cout << "  ";
 				}
@@ -245,19 +292,15 @@ int main() {
 	NumberWall<INT> wall {
 		// [](auto n) -> INT { return n*n; } ,
 		// [](auto n) -> INT { return n*n*n; } ,
-		Fib ,
-		// seq_ZeroWindows ,
-		// [](auto n) {
-		// 	const std::vector<INT> seq = {1,0,0,0,0,0,0,0,1};
-		// 	return (0 <= n&&n < seq.size()) ? seq[n] : 0;
-		// } ,
-		-10 ,
-		21, 10
+		// Fib ,
+		seq_ZeroWindows ,
+		0 ,
+		14, 8
 	};
 
 	wall.calculate();
 	// wall.print();
-	wall.printPattern([](auto n) { return true; });
+	wall.printPattern([](auto n) { return n == 0; });
 
 	return 0;
 }
