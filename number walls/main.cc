@@ -5,6 +5,9 @@
 // #include <mdspan>
 #include <cassert>
 
+#include <cmath>
+#include <algorithm>
+
 template <typename T>
 class NumberWall {
 private:
@@ -37,42 +40,105 @@ public:
 public:
 	/* Calculation */
 	void calculate() {
+		#define Print_Check() \
+			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
+			print();
+		Print_Check();
 		// setup
 		for (int n=x0; n < x1; n++)
 			wall[n-x0] = sequence(n);
+		Print_Check();
 
-		//run the cross rule
-		crossRule();
-		findZeroWindows();
-		fillZeroWindows();
+		int prevCount = 0;
+		int count = numCount();
+		do {
+			prevCount = count;
+
+			iterate([&](int m, int n) {
+				crossRule(m, n);
+			});
+
+			findZeroWindows();
+			fillZeroWindows();
+
+			for (auto& win : zeroWindows) {
+				if (win.size == 1) {
+					longCrossRule(win.m, win.n);
+				}
+			}
+
+			Print_Check();
+			count = numCount();
+		} while (count > prevCount);
+		#undef Print_Check
 	}
 
 
 
 private:
 	/* Calculation Methods */
-	void crossRule() {
-		for (int m=y0; m < y1; m++) {
-		for (int n=x0; n < x1; n++) {
-			// https://files.catbox.moe/vlh72e.png
-			brick a0 = get(m-1, n);
-			brick a1 = get(m+1, n);
-			brick b0 = get(m, n-1);
-			brick b1 = get(m, n+1);
-			brick c  = get(m, n);
+	void crossRule(int m, int n) {
+		// https://files.catbox.moe/vlh72e.png
+		brick _a0 = get(m-1, n);
+		brick _a1 = get(m+1, n);
+		brick _b0 = get(m, n-1);
+		brick _b1 = get(m, n+1);
+		brick _c  = get(m, n);
+		#define a0 (*_a0) // these defines make it much less
+		#define a1 (*_a1) // awkward when doing math with the
+		#define b0 (*_b0) // optional values.
+		#define b1 (*_b1) // The tradeoff is they take a lot
+		#define c (*_c)   // of vertical space though
 
-			if (!a0 + !a1 + !b0 + !b1 + !c == 1) { // 1 unknown
-				/**/ if (!a0 && a1 != 0) { set(m-1, n, T{((*c)*(*c) - (*b0)*(*b1)) / (*a1)}); }
-				else if (!a1 && a0 != 0) { set(m+1, n, T{((*c)*(*c) - (*b0)*(*b1)) / (*a0)}); }
-				else if (!b0 && b1 != 0) { set(m, n-1, T{((*c)*(*c) - (*a0)*(*a1)) / (*b1)}); }
-				else if (!b1 && b0 != 0) { set(m, n+1, T{((*c)*(*c) - (*a0)*(*a1)) / (*b0)}); }
-			}
-		} }
+		if (!_a0 + !_a1 + !_b0 + !_b1 + !_c == 1) { // 1 unknown
+			/**/ if (!_a0 && a1 != 0) { set(m-1, n, T{ (c*c - b0*b1) / a1 }); }
+			else if (!_a1 && a0 != 0) { set(m+1, n, T{ (c*c - b0*b1) / a0 }); }
+			else if (!_b0 && b1 != 0) { set(m, n-1, T{ (c*c - a0*a1) / b1 }); }
+			else if (!_b1 && b0 != 0) { set(m, n+1, T{ (c*c - a0*a1) / b0 }); }
+		}
+
+		#undef a0
+		#undef a1
+		#undef b0
+		#undef b1
+		#undef c
+	}
+
+	void longCrossRule(int m, int n) {
+		brick _a0 = get(m-1, n);	brick _a1 = get(m+2, n);
+		brick _b0 = get(m+1, n);	brick _b1 = get(m-2, n);
+		brick _c0 = get(m, n-1);	brick _c1 = get(m, n+2);
+		brick _d0 = get(m, n+1);	brick _d1 = get(m, n-2);
+		#define a0 (*_a0)
+		#define a1 (*_a1)
+		#define b0 (*_b0)
+		#define b1 (*_b1)
+		#define c0 (*_c0)
+		#define c1 (*_c1)
+		#define d0 (*_d0)
+		#define d1 (*_d1)
+
+		if (!_a0 + !_a1 + !_b0 + !_b1
+		+   !_c0 + !_c1 + !_d0 + !_d1 == 1) {
+			/**/ if (!_a1 && a0 != 0) { set(m+2, n, T{ (-b0*b0*b1 + c0*c0*c1 + d0*d0*d1) / (a0*a0) }); }
+			else if (!_b1 && b0 != 0) { set(m-2, n, T{ (-a0*a0*a1 + c0*c0*c1 + d0*d0*d1) / (b0*b0) }); }
+			else if (!_c1 && c0 != 0) { set(m, n+2, T{ (-d0*d0*d1 + a0*a0*a1 + b0*b0*b1) / (c0*c0) }); }
+			else if (!_d1 && d0 != 0) { set(m, n-2, T{ (-c0*c0*c1 + a0*a0*a1 + b0*b0*b1) / (d0*d0) }); }
+		}
+
+		#undef a0
+		#undef a1
+		#undef b0
+		#undef b1
+		#undef c0
+		#undef c1
+		#undef d0
+		#undef d1
 	}
 
 	void findZeroWindows() {
-		for (int m=y0; m < y1; m++) {
-		for (int n=x0; n < x1; n++) {
+		zeroWindows.clear();
+		iterate([&](int& m, int& n) {
 			brick c  = get(m,n);
 			brick a  = get(m-1, n);
 			brick b0 = get(m, n-1);
@@ -88,15 +154,17 @@ private:
 				}
 				zeroWindows.push_back(win);
 			}
-		} }
+		});
 	}
 
 	void fillZeroWindows() {
 		for (auto& win : zeroWindows) {
-			for (int m =win.m; m < win.m + win.size; m++) {
-			for (int n =win.n; n < win.n + win.size; n++) {
-				set(m, n, T{0});
-			} }
+			iterate([&](int m, int n) {
+				if ((win.m <= m&&m < win.m + win.size)
+				&&  (win.n <= n&&n < win.n + win.size)) {
+					set(m, n, T{0});
+				}
+			});
 		}
 	}
 
@@ -104,6 +172,13 @@ private:
 
 private:
 	/* Internal Functions */
+	void iterate(auto&& f) {
+		for (int m=y0; m < y1; m++) {
+		for (int n=x0; n < x1; n++) {
+			f(m,n);
+		} }
+	}
+
 	brick get(int m, int n) {
 		const unsigned i = m, j = n-x0;
 		/**/ if (m <= -2) { return T{0}; }
@@ -118,6 +193,14 @@ private:
 			wall[i*w+j] = value;
 		}
 	};
+
+	int numCount() { // number of known bricks
+		int result = 0;
+		iterate([&](int m, int n) {
+			if (get(m, n)) { result++; }
+		});
+		return result;
+	}
 
 
 
@@ -159,22 +242,22 @@ using INT = mpz_class;
 
 
 int main() {
-	NumberWall<INT> squares {
+	NumberWall<INT> wall {
 		// [](auto n) -> INT { return n*n; } ,
 		// [](auto n) -> INT { return n*n*n; } ,
-		// Fib ,
+		Fib ,
 		// seq_ZeroWindows ,
-		[](auto n) {
-			const std::vector<INT> seq = {1,0,0,0,0,0,0,0,1};
-			return (0 <= n&&n < seq.size()) ? seq[n] : 0;
-		} ,
-		0 ,
-		14, 10
+		// [](auto n) {
+		// 	const std::vector<INT> seq = {1,0,0,0,0,0,0,0,1};
+		// 	return (0 <= n&&n < seq.size()) ? seq[n] : 0;
+		// } ,
+		-10 ,
+		21, 10
 	};
 
-	squares.calculate();
-	squares.print();
-	squares.printPattern([](auto n) { return true; });
+	wall.calculate();
+	// wall.print();
+	wall.printPattern([](auto n) { return true; });
 
 	return 0;
 }
