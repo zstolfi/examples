@@ -15,7 +15,7 @@ class NumberWall {
 private:
 	using brick = std::optional<T>; // haha, bricks, get it? :^)
 	using RATIO = mpq_class;
-	struct window { int size, m, n; struct ratios { std::optional<RATIO> a, b, c, d; } };
+	struct window { int size, m, n; struct { std::optional<RATIO> a,b,c,d; } ratios; };
 	std::function<T(int)> sequence {};
 	std::vector<brick> wall {};
 
@@ -72,9 +72,11 @@ public:
 
 			for (auto& win : zeroWindows) {
 				if (win.size == 1) {
-					longCrossRule(win.m, win.n);
+					zeroCrossRule(win);
 				}
+				zeroGeometricRule(win);
 			}
+
 
 			count = numCount();
 		} while (count > prevCount);
@@ -86,23 +88,22 @@ public:
 private:
 	/* Calculation Methods */
 	void crossRule(int m, int n) {
-		// https://files.catbox.moe/vlh72e.png
 		brick _a0 = get(m-1, n);
 		brick _a1 = get(m+1, n);
 		brick _b0 = get(m, n-1);
 		brick _b1 = get(m, n+1);
-		brick _c  = get(m, n);
+		brick _x  = get(m, n);
 		#define a0 (*_a0) // these defines make it much less
 		#define a1 (*_a1) // awkward when doing math with the
 		#define b0 (*_b0) // optional values.
 		#define b1 (*_b1) // The tradeoff is they take a lot
-		#define c (*_c)   // of vertical space though
+		#define x (*_x)   // of vertical space though
 
-		if (!_a0 + !_a1 + !_b0 + !_b1 + !_c == 1) { // 1 unknown
-			/**/ if (!_a0 && a1 != 0) { set(m-1, n, T{ (c*c - b0*b1) / a1 }); }
-			else if (!_a1 && a0 != 0) { set(m+1, n, T{ (c*c - b0*b1) / a0 }); }
-			else if (!_b0 && b1 != 0) { set(m, n-1, T{ (c*c - a0*a1) / b1 }); }
-			else if (!_b1 && b0 != 0) { set(m, n+1, T{ (c*c - a0*a1) / b0 }); }
+		if (!_a0 + !_a1 + !_b0 + !_b1 + !_x == 1) { // 1 unknown
+			/**/ if (!_a0 && a1 != 0) { set(m-1, n, T{ (x*x - b0*b1) / a1 }); }
+			else if (!_a1 && a0 != 0) { set(m+1, n, T{ (x*x - b0*b1) / a0 }); }
+			else if (!_b0 && b1 != 0) { set(m, n-1, T{ (x*x - a0*a1) / b1 }); }
+			else if (!_b1 && b0 != 0) { set(m, n+1, T{ (x*x - a0*a1) / b0 }); }
 		}
 
 		#undef a0
@@ -112,8 +113,13 @@ private:
 		#undef c
 	}
 
+	// The horseshoe rule is really just the next 2 rules but combined into one.
+	// In my code they're independent of one another. And the long cross rule is
+	// really just a specialization of the zero cross rule. (no extra code then)
+
 	void zeroCrossRule(window win) {
 		if (win.size > 1) { return; }
+		auto m = win.m, n = win.n;
 		brick _a0 = get(m-1, n);    brick _a1 = get(m+2, n);
 		brick _b0 = get(m+1, n);    brick _b1 = get(m-2, n);
 		brick _c0 = get(m, n-1);    brick _c1 = get(m, n+2);
@@ -146,42 +152,62 @@ private:
 	}
 
 	void zeroGeometricRule(window win) {
-		std::vector<brick> a {};    a.resize(win.size + 2);
-		std::vector<brick> b {};    b.resize(win.size + 2);
-		std::vector<brick> c {};    c.resize(win.size + 2);
-		std::vector<brick> d {};    d.resize(win.size + 2);
-		for (unsigned i=0; i < win.size + 2; i++) {
-			a[i] = get(win.m-1          , win.n-1        +i);
-			c[i] = get(win.m-1        +i, win.n-1          );
-			b[i] = get(win.m+win.size   , win.n+win.size -i);
-			d[i] = get(win.m+win.size -i, win.n+win.size   );
+		auto m = win.m, n = win.n;
+		unsigned vecSize = win.size + 2;
+		std::vector<brick> a {};    a.resize(vecSize);
+		std::vector<brick> b {};    b.resize(vecSize);
+		std::vector<brick> c {};    c.resize(vecSize);
+		std::vector<brick> d {};    d.resize(vecSize);
+		for (unsigned i=0; i < vecSize; i++) {
+			a[i] = get(m-1          , n-1        +i);
+			c[i] = get(m-1        +i, n-1          );
+			b[i] = get(m+win.size   , n+win.size -i);
+			d[i] = get(m+win.size -i, n+win.size   );
 		}
 
+		std::vector loop {make_pair(&a, &win.ratios.a),
+		                  make_pair(&b, &win.ratios.b),
+		                  make_pair(&c, &win.ratios.c),
+		                  make_pair(&d, &win.ratios.d)};
 
-		for (auto* vec : {&a, &b, &c, &d}) {
+		for (auto [vec, ratio] : loop) {
 			// Iterate through odd-spaced pairs, even-spaced
 			// pairs would give us 2 roots, as opposed to 1.
-			unsigned pow;
-			RATIO r;
-			for (unsigned i=0; i < vec.size()-1; i++) {
-			for (unsigned j=i+1; j < vec.size(); j += 2) {
+			bool found = false;
+			unsigned pow = 1;
+			RATIO r {1,1};
+			if (*ratio) { found = true; r = *(*ratio); }
+
+			for (unsigned i=0;   !found && i < vec->size()-1; i++) {
+			for (unsigned j=i+1; !found && j < vec->size()  ; j+=2) {
 				if ((*vec)[i] && (*vec)[j]) {
 					pow = j-i;
 					r = RATIO {*(*vec)[j], *(*vec)[i]}; // dereference, subscript, opt_dereference
 					r.canonicalize();
-					goto done;
+					found = true;
 				}
 			} }
-			done:
+			if (!found) { break; }
 
 			mpz_root(r.get_num_mpz_t(), r.get_num_mpz_t(), pow);
 			mpz_root(r.get_den_mpz_t(), r.get_den_mpz_t(), pow);
+
+			// Now that we have the per-step ratios
+			// we can calculate rest of the values.
+			T val = *(*vec)[0]; // TODO: fill vec without relying on element 0
+			for (unsigned i=0; i < vec->size(); i++) {
+				(*vec)[i] = val;
+				val = val * r;
+			}
+		}
+
+		for (unsigned i=0; i < vecSize; i++) {
+			set(m-1          , n-1        +i, a[i]);
+			set(m-1        +i, n-1          , c[i]);
+			set(m+win.size   , n+win.size -i, b[i]);
+			set(m+win.size -i, n+win.size   , d[i]);
 		}
 	}
-
-	// The horseshoe rule is really just the previous 2 rules combined into one.
-	// In my code they're independent of one another. And the long cross rule is
-	// a specialization of the zero cross rule. (so no extra code for that case)
 
 	void findZeroWindows() {
 		zeroWindows.clear();
@@ -259,7 +285,7 @@ public:
 				if (auto value = wall[i*w+j]) {
 					std::cout << *value;
 				} else {
-					std::cout << ".";
+					// std::cout << ".";
 				}
 				if (j+1 <= w) { std::cout << "\t"; }
 			}
@@ -300,7 +326,7 @@ int main() {
 
 	wall.calculate();
 	// wall.print();
-	wall.printPattern([](auto n) { return n == 0; });
+	wall.printPattern([](auto n) { return true; });
 
 	return 0;
 }
