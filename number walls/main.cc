@@ -15,7 +15,11 @@ class NumberWall {
 private:
 	using brick = std::optional<T>; // haha, bricks, get it? :^)
 	using RATIO = mpq_class;
-	struct window { int size, m, n; struct { std::optional<RATIO> a,b,c,d; } ratios; };
+	struct window {
+		int size, m, n;
+		struct { std::optional<RATIO> a,b,c,d; } ratios;
+		brick v0, v1;
+	};
 	std::function<T(int)> sequence {};
 	std::vector<brick> wall {};
 
@@ -159,40 +163,35 @@ private:
 	}
 
 	void zeroGeometricRule(window& win) {
-		auto m = win.m, n = win.n;
-		unsigned vecSize = win.size + 2;
-		std::vector<brick> a {};    a.resize(vecSize);
-		std::vector<brick> b {};    b.resize(vecSize);
-		std::vector<brick> c {};    c.resize(vecSize);
-		std::vector<brick> d {};    d.resize(vecSize);
-		for (unsigned i=0; i < vecSize; i++) {
-			a[i] = get(m-1          , n-1        +i);
-			c[i] = get(m-1        +i, n-1          );
-			b[i] = get(m+win.size   , n+win.size -i);
-			d[i] = get(m+win.size -i, n+win.size   );
-		}
+		int m = win.m, n = win.n, size = win.size;
 
-		std::vector loop {make_pair(&a, &win.ratios.a),
-		                  make_pair(&b, &win.ratios.b),
-		                  make_pair(&c, &win.ratios.c),
-		                  make_pair(&d, &win.ratios.d)};
-
-		for (auto [vec, ratio] : loop) {
-
-			if (!(*ratio)) { break; }
-			
-			T val = *(*vec)[0]; // TODO: fill vec without relying on element 0
-			for (unsigned i=0; i < vec->size(); i++) {
-				(*vec)[i] = val;
-				val = val * (*ratio);
+		if (win.v0 && win.ratios.a) {
+			T a = *win.v0;
+			for (unsigned i=1; i < size; i++) {
+				a *= *win.ratios.a;
+				set(m-1   , n-1 +i, a);
 			}
 		}
-
-		for (unsigned i=0; i < vecSize; i++) {
-			set(m-1          , n-1        +i, a[i]);
-			set(m-1        +i, n-1          , c[i]);
-			set(m+win.size   , n+win.size -i, b[i]);
-			set(m+win.size -i, n+win.size   , d[i]);
+		if (win.v0 && win.ratios.c) {
+			T c = *win.v0;
+			for (unsigned i=1; i < size; i++) {
+				c *= *win.ratios.c;
+				set(m-1 +i, n-1   , c);
+			}
+		}
+		if (win.v1 && win.ratios.b) {
+			T b = *win.v0;
+			for (unsigned i=1; i < size; i++) {
+				b *= *win.ratios.b;
+				set(m+size   , n+size -i, b);
+			}
+		}
+		if (win.v1 && win.ratios.d) {
+			T d = *win.v0;
+			for (unsigned i=1; i < size; i++) {
+				d *= *win.ratios.d;
+				set(m+size -i, n+size   , d);
+			}
 		}
 	}
 
@@ -218,24 +217,18 @@ private:
 
 		// find the ratios for any of the 4 sides of the window
 		for (auto& win : zeroWindows) {
-			RATIO r {1,1};
-			// Iterate through odd-spaced pairs, even-spaced
-			// pairs would give us 2 roots, as opposed to 1.
-			for (unsigned i=0;   !found && i < vec->size()-1; i++) {
-			for (unsigned j=i+1; !found && j < vec->size()  ; j+=2) {
-				if ((*vec)[i] && (*vec)[j]) {
-					unsigned pow = j-i;
-					r = RATIO {*(*vec)[j], *(*vec)[i]}; // dereference, subscript, opt_dereference
-					r.canonicalize();
+			int m = win.m, n = win.n, size = win.size;
+			if (auto corner = get(m-1, n-1)) {
+				win.v0 = *corner;
+				if (auto a = get(m-1, n)) { win.ratios.a = RATIO {*a,*corner}; }
+				if (auto c = get(m, n-1)) { win.ratios.c = RATIO {*c,*corner}; }
+			}
 
-					mpz_root(r.get_num_mpz_t(), r.get_num_mpz_t(), pow);
-					mpz_root(r.get_den_mpz_t(), r.get_den_mpz_t(), pow);
-					r.canonicalize();
-
-					*ratio = r;
-					found = true;
-				}
-			} }
+			if (auto corner = get(m+size, n+size)) {
+				win.v1 = *corner;
+				if (auto b = get(m+size, n+size-1)) { win.ratios.b = RATIO {*b,*corner}; }
+				if (auto d = get(m+size-1, n+size)) { win.ratios.d = RATIO {*d,*corner}; }
+			}
 		}
 	}
 
