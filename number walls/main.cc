@@ -55,14 +55,6 @@ public:
 	void calculate() {
 		#define Print_Check() \
 			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
-			for (unsigned i=0; i < zeroWindows.size(); i++) { \
-				auto& win = zeroWindows[i]; \
-				std::cout << i << "\t" << win.m << ", " << win.n << "\t" << win.size << "\n"; \
-				std::cout << "a >\t"; if (auto r = win.ratios.a) { std::cout << *r; } std::cout << "\n"; \
-				std::cout << "b <\t"; if (auto r = win.ratios.b) { std::cout << *r; } std::cout << "\n"; \
-				std::cout << "c v\t"; if (auto r = win.ratios.c) { std::cout << *r; } std::cout << "\n"; \
-				std::cout << "d ^\t"; if (auto r = win.ratios.d) { std::cout << *r; } std::cout << "\n"; \
-			} \
 			print();
 
 		// setup
@@ -73,6 +65,7 @@ public:
 		int count = numCount();
 		do {
 			prevCount = count;
+			Print_Check();
 
 			iterate([&](int m, int n) {
 				crossRule(m, n);
@@ -88,7 +81,6 @@ public:
 				zeroGeometricRule(win);
 			}
 
-			Print_Check();
 			count = numCount();
 		} while (count > prevCount);
 		#undef Print_Check
@@ -167,41 +159,31 @@ private:
 		auto& r = win.ratios;
 
 		if (!r.a + !r.b + !r.c + !r.d == 1) { // 1 unknown
-			/**/ if (!r.a) { r.a = (*r.c) * (*r.d) / (*r.b); }
-			else if (!r.b) { r.b = (*r.c) * (*r.d) / (*r.a); }
-			else if (!r.c) { r.c = (*r.a) * (*r.b) / (*r.d); }
-			else if (!r.d) { r.d = (*r.a) * (*r.b) / (*r.c); }
+			int sign = (size%2 == 0) ? 1 : -1;
+			/**/ if (!r.a) { r.a = sign * (*r.c) * (*r.d) / (*r.b); }
+			else if (!r.b) { r.b = sign * (*r.c) * (*r.d) / (*r.a); }
+			else if (!r.c) { r.c = sign * (*r.a) * (*r.b) / (*r.d); }
+			else if (!r.d) { r.d = sign * (*r.a) * (*r.b) / (*r.c); }
 		}
 
+		#define Apply_Side(R, V, M, N) \
+			if ((R) && (V)) { \
+				T val = *(V); \
+				for (int i=1; i <= size; i++) { \
+					val *= *(R); \
+					/*if (auto orig = get(M,N); orig && *orig != val) {*/ \
+					/*	std::cout << "ERR!\t" << M << " " << N << "\t" << *orig << " <-> " << val << "\n";*/ \
+					/*}*/ \
+					set(M, N, val); \
+			} }	
+
 		// apply the known ratios
-		if (win.v0 && win.ratios.a) {
-			T a = *win.v0;
-			for (int i=1; i <= size; i++) {
-				a *= *win.ratios.a;
-				set(m-1   , n-1 +i, a);
-			}
-		}
-		if (win.v0 && win.ratios.c) {
-			T c = *win.v0;
-			for (int i=1; i <= size; i++) {
-				c *= *win.ratios.c;
-				set(m-1 +i, n-1   , c);
-			}
-		}
-		if (win.v1 && win.ratios.b) {
-			T b = *win.v0;
-			for (int i=1; i <= size; i++) {
-				b *= *win.ratios.b;
-				set(m+size   , n+size -i, b);
-			}
-		}
-		if (win.v1 && win.ratios.d) {
-			T d = *win.v0;
-			for (int i=1; i <= size; i++) {
-				d *= *win.ratios.d;
-				set(m+size -i, n+size   , d);
-			}
-		}
+		Apply_Side(win.ratios.a, win.v0, m-1      , n-1    +i);
+		Apply_Side(win.ratios.c, win.v0, m-1    +i, n-1      );
+		Apply_Side(win.ratios.b, win.v1, m+size   , n+size -i);
+		Apply_Side(win.ratios.d, win.v1, m+size -i, n+size   );
+
+		#undef Apply_Side
 	}
 
 	void findZeroWindows() {
