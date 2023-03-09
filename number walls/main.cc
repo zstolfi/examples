@@ -145,7 +145,7 @@ private:
 		#define d1 (*_d1)
 
 		if (!_a0 + !_a1 + !_b0 + !_b1
-		+   !_c0 + !_c1 + !_d0 + !_d1 == 1) {
+		+   !_c0 + !_c1 + !_d0 + !_d1 == 1) { // 1 unknown
 			/**/ if (!_a1) { set(m+2, n, T{ (-b0*b0*b1 + c0*c0*c1 + d0*d0*d1) / (a0*a0) }); }
 			else if (!_b1) { set(m-2, n, T{ (-a0*a0*a1 + c0*c0*c1 + d0*d0*d1) / (b0*b0) }); }
 			else if (!_c1) { set(m, n+2, T{ (-d0*d0*d1 + a0*a0*a1 + b0*b0*b1) / (c0*c0) }); }
@@ -164,31 +164,40 @@ private:
 
 	void zeroGeometricRule(window& win) {
 		int m = win.m, n = win.n, size = win.size;
+		auto& r = win.ratios;
 
+		if (!r.a + !r.b + !r.c + !r.d == 1) { // 1 unknown
+			/**/ if (!r.a) { r.a = (*r.c) * (*r.d) / (*r.b); }
+			else if (!r.b) { r.b = (*r.c) * (*r.d) / (*r.a); }
+			else if (!r.c) { r.c = (*r.a) * (*r.b) / (*r.d); }
+			else if (!r.d) { r.d = (*r.a) * (*r.b) / (*r.c); }
+		}
+
+		// apply the known ratios
 		if (win.v0 && win.ratios.a) {
 			T a = *win.v0;
-			for (unsigned i=1; i < size; i++) {
+			for (int i=1; i <= size; i++) {
 				a *= *win.ratios.a;
 				set(m-1   , n-1 +i, a);
 			}
 		}
 		if (win.v0 && win.ratios.c) {
 			T c = *win.v0;
-			for (unsigned i=1; i < size; i++) {
+			for (int i=1; i <= size; i++) {
 				c *= *win.ratios.c;
 				set(m-1 +i, n-1   , c);
 			}
 		}
 		if (win.v1 && win.ratios.b) {
 			T b = *win.v0;
-			for (unsigned i=1; i < size; i++) {
+			for (int i=1; i <= size; i++) {
 				b *= *win.ratios.b;
 				set(m+size   , n+size -i, b);
 			}
 		}
 		if (win.v1 && win.ratios.d) {
 			T d = *win.v0;
-			for (unsigned i=1; i < size; i++) {
+			for (int i=1; i <= size; i++) {
 				d *= *win.ratios.d;
 				set(m+size -i, n+size   , d);
 			}
