@@ -51,6 +51,14 @@ public:
 	void calculate() {
 		#define Print_Check() \
 			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
+			for (unsigned i=0; i < zeroWindows.size(); i++) { \
+				auto& win = zeroWindows[i]; \
+				std::cout << i << "\t" << win.m << ", " << win.n << "\t" << win.size << "\n"; \
+				std::cout << "a >\t"; if (auto r = win.ratios.a) { std::cout << *r; } std::cout << "\n"; \
+				std::cout << "b <\t"; if (auto r = win.ratios.b) { std::cout << *r; } std::cout << "\n"; \
+				std::cout << "c v\t"; if (auto r = win.ratios.c) { std::cout << *r; } std::cout << "\n"; \
+				std::cout << "d ^\t"; if (auto r = win.ratios.d) { std::cout << *r; } std::cout << "\n"; \
+			} \
 			print();
 
 		// setup
@@ -61,7 +69,6 @@ public:
 		int count = numCount();
 		do {
 			prevCount = count;
-			Print_Check();
 
 			iterate([&](int m, int n) {
 				crossRule(m, n);
@@ -77,7 +84,7 @@ public:
 				zeroGeometricRule(win);
 			}
 
-
+			Print_Check();
 			count = numCount();
 		} while (count > prevCount);
 		#undef Print_Check
@@ -117,7 +124,7 @@ private:
 	// In my code they're independent of one another. And the long cross rule is
 	// really just a specialization of the zero cross rule. (no extra code then)
 
-	void zeroCrossRule(window win) {
+	void zeroCrossRule(window& win) {
 		if (win.size > 1) { return; }
 		auto m = win.m, n = win.n;
 		brick _a0 = get(m-1, n);    brick _a1 = get(m+2, n);
@@ -151,7 +158,7 @@ private:
 		#undef d1
 	}
 
-	void zeroGeometricRule(window win) {
+	void zeroGeometricRule(window& win) {
 		auto m = win.m, n = win.n;
 		unsigned vecSize = win.size + 2;
 		std::vector<brick> a {};    a.resize(vecSize);
@@ -171,33 +178,13 @@ private:
 		                  make_pair(&d, &win.ratios.d)};
 
 		for (auto [vec, ratio] : loop) {
-			// Iterate through odd-spaced pairs, even-spaced
-			// pairs would give us 2 roots, as opposed to 1.
-			bool found = false;
-			unsigned pow = 1;
-			RATIO r {1,1};
-			if (*ratio) { found = true; r = *(*ratio); }
 
-			for (unsigned i=0;   !found && i < vec->size()-1; i++) {
-			for (unsigned j=i+1; !found && j < vec->size()  ; j+=2) {
-				if ((*vec)[i] && (*vec)[j]) {
-					pow = j-i;
-					r = RATIO {*(*vec)[j], *(*vec)[i]}; // dereference, subscript, opt_dereference
-					r.canonicalize();
-					found = true;
-				}
-			} }
-			if (!found) { break; }
-
-			mpz_root(r.get_num_mpz_t(), r.get_num_mpz_t(), pow);
-			mpz_root(r.get_den_mpz_t(), r.get_den_mpz_t(), pow);
-
-			// Now that we have the per-step ratios
-			// we can calculate rest of the values.
+			if (!(*ratio)) { break; }
+			
 			T val = *(*vec)[0]; // TODO: fill vec without relying on element 0
 			for (unsigned i=0; i < vec->size(); i++) {
 				(*vec)[i] = val;
-				val = val * r;
+				val = val * (*ratio);
 			}
 		}
 
@@ -228,6 +215,28 @@ private:
 				zeroWindows.push_back(win);
 			}
 		});
+
+		// find the ratios for any of the 4 sides of the window
+		for (auto& win : zeroWindows) {
+			RATIO r {1,1};
+			// Iterate through odd-spaced pairs, even-spaced
+			// pairs would give us 2 roots, as opposed to 1.
+			for (unsigned i=0;   !found && i < vec->size()-1; i++) {
+			for (unsigned j=i+1; !found && j < vec->size()  ; j+=2) {
+				if ((*vec)[i] && (*vec)[j]) {
+					unsigned pow = j-i;
+					r = RATIO {*(*vec)[j], *(*vec)[i]}; // dereference, subscript, opt_dereference
+					r.canonicalize();
+
+					mpz_root(r.get_num_mpz_t(), r.get_num_mpz_t(), pow);
+					mpz_root(r.get_den_mpz_t(), r.get_den_mpz_t(), pow);
+					r.canonicalize();
+
+					*ratio = r;
+					found = true;
+				}
+			} }
+		}
 	}
 
 	void fillZeroWindows() {
@@ -326,7 +335,7 @@ int main() {
 
 	wall.calculate();
 	// wall.print();
-	wall.printPattern([](auto n) { return true; });
+	wall.printPattern([](auto n) { return n == 0; });
 
 	return 0;
 }
