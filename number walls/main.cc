@@ -39,8 +39,8 @@ public:
 	: sequence{s}, w{2*_h + _w}, h{_h}
 	, x0{static_cast<int>(x-_h)}, x1{static_cast<int>(x+_w+_h)}
 	, y0{static_cast<int>(0   )}, y1{static_cast<int>(0+_h   )}  {
-		std::cout << "Constructing with desired width of " << _w << "\n"
-		          << "Internal width calculated as " << w << "\n";
+		// std::cout << "Constructing with desired width of " << _w << "\n"
+		//           << "Internal width calculated as " << w << "\n";
 		wall.resize(w*h, std::nullopt);
 	}
 
@@ -56,6 +56,11 @@ public:
 		#define Print_Check() \
 			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
 			print();
+#if 0
+		#define Debug(STR) std::cout << STR << "\n";
+#else
+		#define Debug(STR) /**/
+#endif
 
 		// setup
 		for (int n=x0; n < x1; n++)
@@ -65,7 +70,7 @@ public:
 		int count = numCount();
 		do {
 			prevCount = count;
-			Print_Check();
+			// Print_Check();
 
 			iterate([&](int m, int n) {
 				crossRule(m, n);
@@ -76,9 +81,11 @@ public:
 
 			for (auto& win : zeroWindows) {
 				if (win.size == 1) {
-					zeroCrossRule(win);
+					longCrossRule(win);
+				} /*else*/ {
+					zeroGeometricRule(win);
+					brokenCrossRule(win);
 				}
-				zeroGeometricRule(win);
 			}
 
 			count = numCount();
@@ -117,10 +124,11 @@ private:
 	}
 
 	// The horseshoe rule is really just the next 2 rules but combined into one.
-	// In my code they're independent of one another. And the long cross rule is
-	// really just a specialization of the zero cross rule. (no extra code then)
+	// In my code they're independent of one another. Hoever the long cross rule
+	// seems to be a specialization of the broken cross rule, where the ratio of
+	// the sides of the zero-window are not needed. Haven't confirmed it though.
 
-	void zeroCrossRule(window& win) {
+	void longCrossRule(window& win) {
 		if (win.size > 1) { return; }
 		auto m = win.m, n = win.n;
 		brick _a0 = get(m-1, n);    brick _a1 = get(m+2, n);
@@ -154,6 +162,39 @@ private:
 		#undef d1
 	}
 
+	void brokenCrossRule(window& win) {
+		// This rule has the biggest formula yet, I'll only solve
+		// for the case when the b-row is unknown. I could extend
+		// it in the future if needed. Though it'd be kinda huge.
+		int m = win.m, n = win.n, size = win.size;
+		auto& r = win.ratios;
+
+		bool valid = true;
+		valid &= r.a && r.b && r.c && r.d;
+		for (int i=1; valid && i <= size; i++) {
+			valid &= /*a*/ get(m-1 +i, n-1) && get(m-1 +i, n-2)
+			      && /*c*/ get(m-1, n-1 +i) && get(m-2, n-1 +i)
+			      && /*b*/ get(m+size -i, n+size) && get(m+size -i, n+size+1)
+			      && /*d*/ get(m+size, n+size -i) /********* unkown *********/;
+		}
+		if (!valid) { return; }
+
+		for (int i=1; i <= size; i++) {
+			int sign = (i%2 == 0) ? 1 : -1;
+
+			T a0 = *get(m-1 +i, n-1), a1 = *get(m-1 +i, n-2);
+			T c0 = *get(m-1, n-1 +i), c1 = *get(m-2, n-1 +i);
+			T b0 = *get(m+size -i, n+size), b1 = *get(m+size -i, n+size+1);
+			T d0 = *get(m+size, n+size -i);
+
+			set(m+size+1, n+size -i, T {
+				(       *r.c * a0*b0*c1*d0
+				+ sign*(*r.a * a1*b0*c0*d0
+				-       *r.b * a0*b1*c0*d0)) / (*r.d * a0*b0*c0)
+			});
+		}
+	}
+
 	void zeroGeometricRule(window& win) {
 		int m = win.m, n = win.n, size = win.size;
 		auto& r = win.ratios;
@@ -170,12 +211,13 @@ private:
 			if ((R) && (V)) { \
 				T val = *(V); \
 				for (int i=1; i <= size; i++) { \
-					val *= *(R); \
+					val = val *	 *(R); \
 					/*if (auto orig = get(M,N); orig && *orig != val) {*/ \
 					/*	std::cout << "ERR!\t" << M << " " << N << "\t" << *orig << " <-> " << val << "\n";*/ \
 					/*}*/ \
 					set(M, N, val); \
-			} }	
+				} \
+			}
 
 		// apply the known ratios
 		Apply_Side(win.ratios.a, win.v0, m-1      , n-1    +i);
@@ -220,6 +262,11 @@ private:
 				if (auto b = get(m+size, n+size-1)) { win.ratios.b = RATIO {*b,*corner}; }
 				if (auto d = get(m+size-1, n+size)) { win.ratios.d = RATIO {*d,*corner}; }
 			}
+			if (auto& v = win.ratios.a) { v->canonicalize(); }
+			if (auto& v = win.ratios.b) { v->canonicalize(); }
+			if (auto& v = win.ratios.c) { v->canonicalize(); }
+			if (auto& v = win.ratios.d) { v->canonicalize(); }
+
 		}
 	}
 
@@ -256,6 +303,12 @@ private:
 	void set(int m, int n, brick value) {
 		const unsigned i = m, j = n-x0;
 		if ((0 <= i&&i < h) && (0 <= j&&j < w)) {
+			if (auto prev = wall[i*w+j]; prev && *prev != *value) {
+				std::cout << "ERR!\t"
+				          << m << ", " << n << "\t"
+				          << *prev << " <- " << *value << "\n";
+				print();
+			}
 			wall[i*w+j] = value;
 		}
 	};
@@ -311,10 +364,11 @@ int main() {
 	NumberWall<INT> wall {
 		// [](auto n) -> INT { return n*n; } ,
 		// [](auto n) -> INT { return n*n*n; } ,
-		// Fib ,
+		// [](auto n) -> INT { return Fib(n) - 1; } ,
 		seq_ZeroWindows ,
+		// [](auto n) -> INT { return std::sin(1.0 / (n/10000000.0)) > 0.5; } , // pseudo-random
 		0 ,
-		14, 8
+		100, 100
 	};
 
 	wall.calculate();
