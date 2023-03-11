@@ -15,31 +15,31 @@ class NumberWall {
 private:
 	using brick = std::optional<T>; // haha, bricks, get it? :^)
 	using RATIO = mpq_class;
+	std::function<T(int)> sequence {};
+	std::vector<brick> wall {};
+
+	const unsigned w, h;	// internal with & height
+	const int x0, x1;   	// x bounds
+	const int y0, y1;   	// y bounds
+
+	// https://files.catbox.moe/a9bia6.png
 	struct window {
 		int size, m, n;
 		struct { std::optional<RATIO> a,b,c,d; } ratios;
 		brick v0, v1;
 	};
-	std::function<T(int)> sequence {};
-	std::vector<brick> wall {};
-
-	const unsigned w, h;	// with, height
-	const int x0, x1;   	// x bounds
-	const int y0, y1;   	// y bounds
-
 	std::vector<window> zeroWindows {};
-	// std::vector<window> partialZeroWindows {};
 
 public:
 	// The width & height in the constructor is the space we want
 	// to be filled, to get there we need to start wider, and the
 	// edges will diagonally shrink, ending in the desired width.
 
-	NumberWall(std::function<T(int)> s, int x, unsigned _w, unsigned _h)
-	: sequence{s}, w{2*_h + _w}, h{_h}
-	, x0{static_cast<int>(x-_h)}, x1{static_cast<int>(x+_w+_h)}
-	, y0{static_cast<int>(0   )}, y1{static_cast<int>(0+_h   )}  {
-		// std::cout << "Constructing with desired width of " << _w << "\n"
+	NumberWall(std::function<T(int)> s, int x, unsigned w_in, unsigned h_in)
+	: sequence{s}, w{2*h_in + w_in}, h{h_in}
+	, x0 {static_cast<int>(x-h_in)}, x1 {static_cast<int>(x+w_in+h_in)}
+	, y0 {static_cast<int>(0     )}, y1 {static_cast<int>(0+h_in     )}  {
+		// std::cout << "Constructing with desired width of " << w_in << "\n"
 		//           << "Internal width calculated as " << w << "\n";
 		wall.resize(w*h, std::nullopt);
 	}
@@ -53,15 +53,6 @@ public:
 public:
 	/* Calculation */
 	void calculate() {
-		#define Print_Check() \
-			std::cout << numCount() << "\t" << zeroWindows.size() << "\n"; \
-			print();
-#if 0
-		#define Debug(STR) std::cout << STR << "\n";
-#else
-		#define Debug(STR) /**/
-#endif
-
 		// setup
 		for (int n=x0; n < x1; n++)
 			wall[n-x0] = sequence(n);
@@ -70,7 +61,6 @@ public:
 		int count = numCount();
 		do {
 			prevCount = count;
-			// Print_Check();
 
 			iterate([&](int m, int n) {
 				crossRule(m, n);
@@ -82,7 +72,7 @@ public:
 			for (auto& win : zeroWindows) {
 				if (win.size == 1) {
 					longCrossRule(win);
-				} /*else*/ {
+				} else {
 					zeroGeometricRule(win);
 					brokenCrossRule(win);
 				}
@@ -211,7 +201,7 @@ private:
 			if ((R) && (V)) { \
 				T val = *(V); \
 				for (int i=1; i <= size; i++) { \
-					val = val *	 *(R); \
+					val = val * *(R); \
 					/*if (auto orig = get(M,N); orig && *orig != val) {*/ \
 					/*	std::cout << "ERR!\t" << M << " " << N << "\t" << *orig << " <-> " << val << "\n";*/ \
 					/*}*/ \
@@ -365,15 +355,19 @@ int main() {
 		// [](auto n) -> INT { return n*n; } ,
 		// [](auto n) -> INT { return n*n*n; } ,
 		// [](auto n) -> INT { return Fib(n) - 1; } ,
-		seq_ZeroWindows ,
 		// [](auto n) -> INT { return std::sin(1.0 / (n/10000000.0)) > 0.5; } , // pseudo-random
+
+		// seq_ZeroWindows ,
+		// seq_Rueppel ,
+		// seq_Rook ,
+		seq_Knight ,
 		0 ,
-		100, 100
+		256, 128
 	};
 
 	wall.calculate();
 	// wall.print();
-	wall.printPattern([](auto n) { return n == 0; });
+	wall.printPattern([](auto n) { return n%2 == 0; });
 
 	return 0;
 }
