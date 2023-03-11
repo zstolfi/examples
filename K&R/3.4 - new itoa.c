@@ -36,7 +36,16 @@ void itoa_old(int n, char s[]) {
 }
 
 void itoa_new(int n, char s[]) {
+	int i = 0, sign = (n < 0);
 
+	do {
+		int digit = n - 10*(n/10);
+		if (digit < 0) { digit = -digit; }
+		s[i++] = digit + '0';
+	} while ((n /= 10) != 0);
+	if (sign) { s[i++] = '-'; }
+	s[i] = '\0';
+	reverse(s, i);
 }
 
 
