@@ -52,10 +52,6 @@ count-change 11
                     cc 1 1 ── cc 1 0
                     │
                     └── ║cc 0 1║
-
-
-    |         |         |         |
-    cc 1 0    cc 0 1    cc 1 0    cc 0 1
 |#
 
 (define (count-change amount)
