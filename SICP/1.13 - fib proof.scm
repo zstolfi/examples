@@ -26,7 +26,7 @@
     Because φ = (0 + 1φ), the formula φ^n can be written:
     φ^n = Fib(n-1) + φ*Fib(n)
 
-    Also, because φ and ψ satisfy the same equation, the above
+    Also, because φ and ψ both satisfy our equation, the above
     works for ψ as well. Namely:
     ψ^n = Fib(n-1) + ψ*Fib(n)
     
@@ -53,9 +53,9 @@
     Because this lies in the range [-0.5, 0.5),
     rounding our approximation will equal Fib(0) exactly.
 
-    Because |ψ^n| is always decaying, Error(n) will always stay
-    within the range [-0.5, 0.5) for successive values of n.
-    Thus for all n >= 0, Fib(n) = round(φ^n/sqrt(5)).
+    Because |ψ^n| is always decaying, it will always stay
+    within the range [-0.5, 0.5) when n > 0.
+    Thus, Fib(n) = round(φ^n/sqrt(5)).
 
     QED.                                                      █
 |#
