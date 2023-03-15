@@ -26,8 +26,8 @@
     Because φ = (0 + 1φ), the formula φ^n can be written:
     φ^n = Fib(n-1) + φ*Fib(n)
 
-    Also, because φ and ψ both satisfy our equation, the above
-    works for ψ as well. Namely:
+    Also, because φ and ψ both satisfy the same equation,
+    the above works for ψ as well. Namely:
     ψ^n = Fib(n-1) + ψ*Fib(n)
     
 
