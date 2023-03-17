@@ -30,9 +30,9 @@ public:
 
 		tokenize(s);
 
-		for (std::size_t i=0; i < tokens.size(); i++) {
-			std::cout << static_cast<int>(tokenTypes[i]) << " - " << tokens[i] << "\n";
-		}
+		// for (std::size_t i=0; i < tokens.size(); i++) {
+		// 	std::cout << static_cast<int>(tokenTypes[i]) << " - " << tokens[i] << "\n";
+		// }
 
 		return evalFromTokens(0, tokens.size());
 	}
@@ -68,7 +68,6 @@ private:
 
 
 		std::size_t i = begin;
-		std::cout << "i = " << i << "\n";
 		auto result = evalExpr(i);
 
 		while (i+1 < end) {
