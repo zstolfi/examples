@@ -4,6 +4,7 @@
 #include <map>
 #include <optional>
 #include <functional>
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 
@@ -28,6 +29,10 @@ public:
 		if (pOpen != pClose) { return std::nullopt; }
 
 		tokenize(s);
+
+		for (std::size_t i=0; i < tokens.size(); i++) {
+			std::cout << static_cast<int>(tokenTypes[i]) << " - " << tokens[i] << "\n";
+		}
 
 		return evalFromTokens(0, tokens.size());
 	}
@@ -61,21 +66,30 @@ private:
 		if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
 		if (size == 1) { return parseNum(tokens[begin]); }
 
-		std::optional<Num> result = 0;
 
 		std::size_t i = begin;
-		/**/ if (tokenTypes[i] == TokenType::num)   { result = parseNum(tokens[i]); }
-		// else if (tokenTypes[i] == TokenType::paren) { result = evalFromTokens(i+1, matchingParen(i)); }
+		std::cout << "i = " << i << "\n";
+		auto result = evalExpr(i);
 
-		for (; i+2 < end; i+=2) {
-			if (tokenTypes[i+1] == TokenType::op
-			&&  tokenTypes[i+2] == TokenType::num) {
-				const auto& op = operators.at(tokens[i+1]);
-				const auto num = parseNum(tokens[i+2]);
-				result = op(result, num);
-			}
+		while (i+1 < end) {
+			if (tokenTypes[i] == TokenType::op) {
+				const auto& op = operators.at(tokens[i]); i++;
+				auto value = evalExpr(i);
+				result = op(result, value);
+			} else { return std::nullopt; }
 		}
 
+		return result;
+	}
+
+	std::optional<Num> evalExpr(std::size_t& i) {
+		std::optional<Num> result {};
+		/**/ if (tokenTypes[i] == TokenType::num)   { result = parseNum(tokens[i]); i++; }
+		else if (tokenTypes[i] == TokenType::paren) {
+			std::size_t j = matchingParen(i);
+			result = evalFromTokens(i+1, j);
+			i = j+1;
+		}
 		return result;
 	}
 
@@ -94,7 +108,7 @@ private:
 
 
 	void tokenize(const std::string& s) {
-		#define Next i += (tokens.back().size() || 1); continue;
+		#define Next i += std::max<std::size_t>(1, tokens.back().size()); continue;
 
 		for (std::size_t i=0; i < s.size(); ) {
 			/* whitespace */
