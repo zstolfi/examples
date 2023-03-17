@@ -37,7 +37,7 @@ private:
 	struct Operator {
 		std::function<Num(Num,Num)> func {};
 
-		std::optional<Num> operator () (std::optional<Num> x, std::optional<Num> y) {
+		std::optional<Num> operator () (std::optional<Num> x, std::optional<Num> y) const {
 			if (x && y) { return func(*x, *y); }
 			else { return std::nullopt; }
 		}
@@ -61,7 +61,7 @@ private:
 		if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
 		if (size == 1) { return parseNum(tokens[begin]); }
 
-		if (end - begin == 3) {
+		if (size == 3) {
 			if (tokenTypes[begin+0] == TokenType::num
 			&&  tokenTypes[begin+1] == TokenType::op
 			&&  tokenTypes[begin+2] == TokenType::num) {
