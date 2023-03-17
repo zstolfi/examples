@@ -4,7 +4,7 @@
 #include <map>
 #include <optional>
 #include <functional>
-
+#include <cassert>
 #include <iostream>
 
 template <typename Num>
@@ -61,19 +61,40 @@ private:
 		if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
 		if (size == 1) { return parseNum(tokens[begin]); }
 
-		if (size == 3) {
-			if (tokenTypes[begin+0] == TokenType::num
-			&&  tokenTypes[begin+1] == TokenType::op
-			&&  tokenTypes[begin+2] == TokenType::num) {
-				return operators.at("+")(parseNum(tokens[begin+0]), parseNum(tokens[begin+2]));
+		std::optional<Num> result = 0;
+
+		std::size_t i = begin;
+		/**/ if (tokenTypes[i] == TokenType::num)   { result = parseNum(tokens[i]); }
+		// else if (tokenTypes[i] == TokenType::paren) { result = evalFromTokens(i+1, matchingParen(i)); }
+
+		for (; i+2 < end; i+=2) {
+			if (tokenTypes[i+1] == TokenType::op
+			&&  tokenTypes[i+2] == TokenType::num) {
+				const auto& op = operators.at(tokens[i+1]);
+				const auto num = parseNum(tokens[i+2]);
+				result = op(result, num);
 			}
 		}
 
-		return std::nullopt;
+		return result;
 	}
 
+	std::size_t matchingParen(std::size_t i) {
+		assert(tokens[i] == "(" || tokens[i] == ")");
+		int step = (tokens[i] == "(") ? 1 : -1;
+		int count = 0;
+		while (true) {
+			count += (tokens[i] == "(");
+			count -= (tokens[i] == ")");
+			if (count == 0) { return i; }
+			i += step;
+		}
+	}
+
+
+
 	void tokenize(const std::string& s) {
-		#define Next i += tokens.back().size(); continue;
+		#define Next i += (tokens.back().size() || 1); continue;
 
 		for (std::size_t i=0; i < s.size(); ) {
 			/* whitespace */
@@ -99,6 +120,7 @@ private:
 			/* numbers */
 			tokens.emplace_back("");
 			tokenTypes.push_back(TokenType::num);
+			// TODO: alternate way of detecting number width
 			for (std::size_t j=0; i+j < s.size() && parseNum(s.substr(i,j+1)); j++) {
 				tokens.back() += s[i+j];
 			}
