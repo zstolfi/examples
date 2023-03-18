@@ -4,7 +4,6 @@
 #include <map>
 #include <optional>
 #include <functional>
-#include <algorithm>
 #include <cassert>
 #include <iostream>
 
@@ -107,7 +106,7 @@ private:
 
 
 	void tokenize(const std::string& s) {
-		#define Next i += std::max<std::size_t>(1, tokens.back().size()); continue;
+		#define Next i += tokens.back().size(); continue;
 
 		for (std::size_t i=0; i < s.size(); ) {
 			/* whitespace */
@@ -131,14 +130,20 @@ private:
 			if (opMatch) { Next; }
 
 			/* numbers */
-			tokens.emplace_back("");
-			tokenTypes.push_back(TokenType::num);
-			// TODO: alternate way of detecting number width
-			for (std::size_t j=0; i+j < s.size() && parseNum(s.substr(i,j+1)); j++) {
-				tokens.back() += s[i+j];
+
+			// The only way I could think of to parse the maximum size pattern
+			// is to check every substring starting from the end. A "max-size"
+			// term would be helpful for large strings, but it's fine for now.
+			for (std::size_t j = s.size()-i; j > 0; j--) {
+				if (auto num = s.substr(i,j); parseNum(num)) {
+					tokens.emplace_back(num);
+					tokenTypes.push_back(TokenType::num);
+					break;
+				}
 			}
 			Next;
 		}
+
 		#undef Next
 	}
 

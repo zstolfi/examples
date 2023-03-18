@@ -20,11 +20,14 @@ int main(int argc, char* argv[]) {
 	MathParser<double> parser {
 		/* parse double */
 		[&](std::string s) -> std::optional<double> {
-			double result;
-			const char* first = s.data();
-			const char* last = first + s.size();
-			const auto [parseEnd, error] = std::from_chars(first, last, result);
-			if (parseEnd != last || error != std::errc()) { return std::nullopt; }
+			std::size_t n = 0;
+			std::optional<double> result {};
+			try {
+				result = std::stod(s, &n);
+				if (n < s.size()) { result = std::nullopt; }
+			} catch (const std::invalid_argument&) {
+				result = std::nullopt;
+			}
 			return result;
 		}
 	};
