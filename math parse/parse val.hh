@@ -12,7 +12,7 @@ class MathParser {
 private:
 	std::function< std::optional<Num>(std::string) > parseNum {};
 	std::vector<std::string> tokens {};
-	enum class TokenType {num, op, paren};
+	enum class TokenType { num, op, paren };
 	std::vector<TokenType> tokenTypes {};
 
 public:
@@ -38,8 +38,11 @@ public:
 
 private:
 
+	using opID = std::string;
+
 	struct Operator {
-		std::function<Num(Num,Num)> func {};
+		int order; // using the word 'order' instead of 'precedence' for brevity
+		std::function<Num(Num,Num)> func;
 
 		std::optional<Num> operator () (std::optional<Num> x, std::optional<Num> y) const {
 			if (x && y) { return func(*x, *y); }
@@ -47,14 +50,45 @@ private:
 		}
 	};
 
+	enum Direction { left, right };
+
+	struct OrderInfo {
+		Direction direction;
+	};
+
+	struct ExprList {
+		// https://files.catbox.moe/og6o90.png
+		// So far only binary operators are supported.
+		std::vector<std::optional<Num>> nums;
+		std::vector<opID>               ops;
+
+		void pushNum(std::optional<Num> n) {
+			assert(nums.size() == ops.size());
+			nums.push_back(n);
+		}
+
+		void pushOp(opID o) {
+			assert(nums.size() == ops.size()+1);
+			ops.push_back(o);
+		}
+	};
+
+
+
+	std::map<int, OrderInfo> orders {
+		{1, OrderInfo{right}} ,
+		{2, OrderInfo{right}} ,
+		{3, OrderInfo{right}} ,
+	};
+
 	// TODO: operator precedence
 	// TODO: unary operators
-	const std::map<std::string, Operator> operators {
-		{"^", Operator {[&](Num x, Num y) -> Num { return pow(x, y); }}} ,
-		{"*", Operator {[ ](Num x, Num y) -> Num { return x * y;     }}} ,
-		{"/", Operator {[ ](Num x, Num y) -> Num { return x / y;     }}} ,
-		{"+", Operator {[ ](Num x, Num y) -> Num { return x + y;     }}} ,
-		{"-", Operator {[ ](Num x, Num y) -> Num { return x - y;     }}} ,
+	const std::map<opID, Operator> operators {
+		{"^", Operator {1  , [&](Num x, Num y) -> Num { return pow(x, y); }}} ,
+		{"*", Operator { 2 , [ ](Num x, Num y) -> Num { return x * y; }}    } ,
+		{"/", Operator { 2 , [ ](Num x, Num y) -> Num { return x / y; }}    } ,
+		{"+", Operator {  3, [ ](Num x, Num y) -> Num { return x + y; }}    } ,
+		{"-", Operator {  3, [ ](Num x, Num y) -> Num { return x - y; }}    } ,
 	};
 
 
@@ -62,20 +96,20 @@ private:
 	std::optional<Num> evalFromTokens(std::size_t begin, std::size_t end) {
 		std::size_t size = end - begin;
 		if (size == 0) { return std::nullopt; }
-		if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
+		// if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
 		if (size == 1) { return parseNum(tokens[begin]); }
 
+		ExprList exprList {};
 
 		std::size_t i = begin;
-		auto result = evalExpr(i);
+		exprList.pushNum(evalExpr(i));
 
-		while (i+1 < end) {
-			if (tokenTypes[i] == TokenType::op) {
-				const auto& op = operators.at(tokens[i]); i++;
-				auto value = evalExpr(i);
-				result = op(result, value);
-			} else { return std::nullopt; }
+		for (std::size_t i=begin; i < end; ) {
+			exprList.pushOp(tokens[i++]);
+			exprList.pushNum(evalExpr(i));
 		}
+
+		std::optional<Num> result = {}; // temp value
 
 		return result;
 	}
