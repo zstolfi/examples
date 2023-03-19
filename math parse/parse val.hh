@@ -5,7 +5,7 @@
 #include <optional>
 #include <functional>
 #include <cassert>
-#include <iostream>
+// #include <iostream>
 
 template <typename Num>
 class MathParser {
@@ -57,12 +57,11 @@ private:
 	};
 
 	const std::map<int, OrderInfo> orders {
-		{1, OrderInfo{right}} ,
-		{2, OrderInfo{right}} ,
-		{3, OrderInfo{right}} ,
+		{1, OrderInfo{ left  }} ,
+		{2, OrderInfo{ right }} ,
+		{3, OrderInfo{ right }} ,
 	};
 
-	// TODO: operator precedence
 	// TODO: unary operators
 	const std::map<opID, Operator> operators {
 		{"^", Operator {1  , [&](Num x, Num y) -> Num { return pow(x, y); }}} ,
@@ -99,19 +98,13 @@ private:
 			return true;
 		}
 
-		bool sameLevel() {
-			if (ops.size() == 0) { return false; }
-			for (auto o : ops) { if (o != ops[0]) { return false; } }
-			return true;
-		}
-
-		void print() {
-			std::cout << *nums[0] << "\t";
-			for (std::size_t i=0; i < ops.size(); i++) {
-				std::cout <<  ops [i]   << "\t";
-				std::cout << *nums[i+1] << "\t";
-			} std::cout << "\n";
-		}
+		// void print() {
+		// 	std::cout << *nums[0] << "\t";
+		// 	for (std::size_t i=0; i < ops.size(); i++) {
+		// 		std::cout <<  ops [i]   << "\t";
+		// 		std::cout << *nums[i+1] << "\t";
+		// 	} std::cout << "\n";
+		// }
 	};
 
 
@@ -126,7 +119,7 @@ private:
 		ExprList exprList {};
 
 		for (std::size_t i=begin; i < end; ) {
-			if (i == begin) { exprList.pushNum(evalExpr(i)); }
+			if (i == begin) { exprList.pushNum(evalExpr(i)); continue; }
 			exprList.pushOp(tokens[i++]);
 			exprList.pushNum(evalExpr(i));
 		}
@@ -136,27 +129,29 @@ private:
 		auto& nums = exprList.nums;
 		auto& ops  = exprList.ops;
 
-		std::cout << "evaluating exprList...\n";
-		exprList.print();
+		// std::cout << "evaluating exprList...\n";
+		// exprList.print();
 
 		/* reduce */
 		while (ops.size() > 0) {
-			// TODO: respect operator direction
 			/* find the highest order, then reduce */
-			std::size_t iMax = 0;
-			if (!exprList.sameLevel()) {
-				for (std::size_t i=0; i < ops.size(); i++) {
-					int orderOld = operators.at(ops[iMax]).order;
-					int orderNew = operators.at(ops[i])   .order;
-					if (orderNew < orderOld) { iMax = i; }
-				}
+			std::size_t iMaxLeft  = 0;
+			std::size_t iMaxRight = 0;
+			for (std::size_t i=0; i < ops.size(); i++) {
+				int orderNew  = operators.at(ops[i]).order;
+				int orderOldL = operators.at(ops[iMaxLeft ]).order;
+				int orderOldR = operators.at(ops[iMaxRight]).order;
+				if (orderNew <  orderOldL) { iMaxLeft  = i; }
+				if (orderNew <= orderOldR) { iMaxRight = i; }
 			}
-			Operator op = operators.at(ops[iMax]);
-			nums[iMax+0] = op(*nums[iMax+0], *nums[iMax+1]);
-			nums.erase(nums.begin()+iMax+1);
-			ops .erase(ops .begin()+iMax);
+			Operator op = operators.at(ops[iMaxLeft]);
+			auto order = orders.at(op.order);
+			std::size_t i = (order.direction == right) ? iMaxLeft : iMaxRight;
+			nums[i+0] = op(*nums[i+0], *nums[i+1]);
+			nums.erase(nums.begin()+i+1);
+			ops .erase(ops .begin()+i);
 
-			exprList.print();
+			// exprList.print();
 		}
 
 		return nums[0];
