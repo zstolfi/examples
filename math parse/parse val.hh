@@ -56,26 +56,7 @@ private:
 		Direction direction;
 	};
 
-	struct ExprList {
-		// https://files.catbox.moe/og6o90.png
-		// So far only binary operators are supported.
-		std::vector<std::optional<Num>> nums;
-		std::vector<opID>               ops;
-
-		void pushNum(std::optional<Num> n) {
-			assert(nums.size() == ops.size());
-			nums.push_back(n);
-		}
-
-		void pushOp(opID o) {
-			assert(nums.size() == ops.size()+1);
-			ops.push_back(o);
-		}
-	};
-
-
-
-	std::map<int, OrderInfo> orders {
+	const std::map<int, OrderInfo> orders {
 		{1, OrderInfo{right}} ,
 		{2, OrderInfo{right}} ,
 		{3, OrderInfo{right}} ,
@@ -93,25 +74,92 @@ private:
 
 
 
+	struct ExprList {
+		// https://files.catbox.moe/og6o90.png
+		// So far only binary operators are supported.
+		std::vector<std::optional<Num>> nums;
+		std::vector<opID>               ops;
+
+		void pushNum(std::optional<Num> n) {
+			assert(nums.size() == ops.size());
+			nums.push_back(n);
+		}
+
+		void pushOp(opID o) {
+			assert(nums.size() == ops.size()+1);
+			ops.push_back(o);
+		}
+
+		// Nested classes "don't know" what's inside
+		// their parent class, plus I cannot for the
+		// life of me make 'operators' a static obj.
+		bool valid(const auto& opsList) {
+			for (auto n : nums) { if (!n) { return false; } }
+			for (auto o : ops) { if (!opsList.contains(o)) { return false; } }
+			return true;
+		}
+
+		bool sameLevel() {
+			if (ops.size() == 0) { return false; }
+			for (auto o : ops) { if (o != ops[0]) { return false; } }
+			return true;
+		}
+
+		void print() {
+			std::cout << *nums[0] << "\t";
+			for (std::size_t i=0; i < ops.size(); i++) {
+				std::cout <<  ops [i]   << "\t";
+				std::cout << *nums[i+1] << "\t";
+			} std::cout << "\n";
+		}
+	};
+
+
+
 	std::optional<Num> evalFromTokens(std::size_t begin, std::size_t end) {
 		std::size_t size = end - begin;
 		if (size == 0) { return std::nullopt; }
 		// if (size == 1 && tokenTypes[begin] != TokenType::num) { return std::nullopt; }
 		if (size == 1) { return parseNum(tokens[begin]); }
 
+		/* create expression list */
 		ExprList exprList {};
 
-		std::size_t i = begin;
-		exprList.pushNum(evalExpr(i));
-
 		for (std::size_t i=begin; i < end; ) {
+			if (i == begin) { exprList.pushNum(evalExpr(i)); }
 			exprList.pushOp(tokens[i++]);
 			exprList.pushNum(evalExpr(i));
 		}
 
-		std::optional<Num> result = {}; // temp value
+		if (!exprList.valid(operators)) { return std::nullopt; }
 
-		return result;
+		auto& nums = exprList.nums;
+		auto& ops  = exprList.ops;
+
+		std::cout << "evaluating exprList...\n";
+		exprList.print();
+
+		/* reduce */
+		while (ops.size() > 0) {
+			// TODO: respect operator direction
+			/* find the highest order, then reduce */
+			std::size_t iMax = 0;
+			if (!exprList.sameLevel()) {
+				for (std::size_t i=0; i < ops.size(); i++) {
+					int orderOld = operators.at(ops[iMax]).order;
+					int orderNew = operators.at(ops[i])   .order;
+					if (orderNew < orderOld) { iMax = i; }
+				}
+			}
+			Operator op = operators.at(ops[iMax]);
+			nums[iMax+0] = op(*nums[iMax+0], *nums[iMax+1]);
+			nums.erase(nums.begin()+iMax+1);
+			ops .erase(ops .begin()+iMax);
+
+			exprList.print();
+		}
+
+		return nums[0];
 	}
 
 	std::optional<Num> evalExpr(std::size_t& i) {
