@@ -108,16 +108,21 @@ int getop(char s[]) {
 
 	while (s[0] = c = getch(), c == ' ' || c == '\t')
 		;
+
 	s[1] = '\0';
 	if (!isdigit(c) && c != '.' && c != '-')
 		return c;    /* not a number */
 	i = 0;
 
-	if (c == '-' && (s[++i] = c = getch(), !isdigit(c))) {
-		if (c == '\n') { printf("newline\n"); }
-		ungetch(c);
-		s[1] = '\0';
-		return s[0];    /* unary minus */
+	if (c == '-') {
+		if (c = getch(), !isdigit(c)) {
+			/* I'm unget-ing the '\n' but the next loop   
+			   doesn't pick up on it for some reason... */
+			ungetch(c);
+			return s[0];    /* unary minus */
+		} else {
+			s[++i] = c;
+		}
 	}
 	if (isdigit(c))    /* collect integer part */
 		while (s[++i] = c = getch(), isdigit(c))
