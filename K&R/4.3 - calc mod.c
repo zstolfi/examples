@@ -26,20 +26,24 @@ int main(void) {
 	while ((type = getop(s)) != EOF) {
 		switch (type) {
 		case NUMBER:
-			// printf("NUMBER: %s\n", s);
+			printf("NUMBER: %s\n", s);
 			push(atof(s));
 			break;
 		case ADD:
+			printf("ADD: %s\n", s);
 			push(pop() + pop());
 			break;
 		case MUL:
+			printf("MUL: %s\n", s);
 			push(pop() * pop());
 			break;
 		case SUB:
+			printf("SUB: %s\n", s);
 			op2 = pop();
 			push(pop() - op2);
 			break;
 		case DIV:
+			printf("DIV: %s\n", s);
 			op2 = pop();
 			if (op2 != 0.0)
 				push(pop() / op2);
@@ -47,6 +51,7 @@ int main(void) {
 				printf("error: zero divisor\n");
 			break;
 		case MOD:
+			printf("MOD: %s\n", s);
 			op2 = pop();
 			if (op2 > 0.0)
 				push((int)pop() % (int)op2);
@@ -54,6 +59,7 @@ int main(void) {
 				printf("error: invalid modulus\n");
 			break;
 		case PRINT:
+			printf("PRINT: %s\n", s);
 			printf("\t%.8g\n", pop());
 			break;
 		default:
@@ -103,9 +109,16 @@ int getop(char s[]) {
 	while (s[0] = c = getch(), c == ' ' || c == '\t')
 		;
 	s[1] = '\0';
-	if (!isdigit(c) && c != '.')
+	if (!isdigit(c) && c != '.' && c != '-')
 		return c;    /* not a number */
 	i = 0;
+
+	if (c == '-' && (s[++i] = c = getch(), !isdigit(c))) {
+		if (c == '\n') { printf("newline\n"); }
+		ungetch(c);
+		s[1] = '\0';
+		return s[0];    /* unary minus */
+	}
 	if (isdigit(c))    /* collect integer part */
 		while (s[++i] = c = getch(), isdigit(c))
 			;
