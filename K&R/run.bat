@@ -1,2 +1,2 @@
 @echo off
-gcc %1 & a.exe
+gcc %1 && a.exe
