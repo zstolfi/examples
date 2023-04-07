@@ -59,6 +59,7 @@ int main(void) {
 			printf("error: unknown command %s\n", s);
 		}
 	}
+	
 	return 0;
 }
 

@@ -80,4 +80,6 @@ int main(void) {
 	printf("'%s' = %g\n", s4, atof(s4));
 	printf("'%s' = %g\n", s5, atof(s5));
 	printf("'%s' = %g\n", s6, atof(s6));
+
+	return 0;
 }
