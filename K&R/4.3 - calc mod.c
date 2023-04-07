@@ -26,24 +26,19 @@ int main(void) {
 	while ((type = getop(s)) != EOF) {
 		switch (type) {
 		case NUMBER:
-			printf("NUMBER: %s\n", s);
 			push(atof(s));
 			break;
 		case ADD:
-			printf("ADD: %s\n", s);
 			push(pop() + pop());
 			break;
 		case MUL:
-			printf("MUL: %s\n", s);
 			push(pop() * pop());
 			break;
 		case SUB:
-			printf("SUB: %s\n", s);
 			op2 = pop();
 			push(pop() - op2);
 			break;
 		case DIV:
-			printf("DIV: %s\n", s);
 			op2 = pop();
 			if (op2 != 0.0)
 				push(pop() / op2);
@@ -51,7 +46,6 @@ int main(void) {
 				printf("error: zero divisor\n");
 			break;
 		case MOD:
-			printf("MOD: %s\n", s);
 			op2 = pop();
 			if (op2 > 0.0)
 				push((int)pop() % (int)op2);
@@ -59,7 +53,6 @@ int main(void) {
 				printf("error: invalid modulus\n");
 			break;
 		case PRINT:
-			printf("PRINT: %s\n", s);
 			printf("\t%.8g\n", pop());
 			break;
 		default:
@@ -135,6 +128,8 @@ int getop(char s[]) {
 
 
 
+/* apparently I was over-clever in trying to make my own ungetch */
+#if 0
 char ungetchar;    /* only 1 char needed anyway */
 bool heldchar = false;
 
@@ -151,3 +146,20 @@ void ungetch(int c) { /* push character back on input */
 		ungetchar = c;
 	}
 }
+#else
+#define BUFSIZE 100
+
+char buf[BUFSIZE];
+int bufp = 0;
+
+int getch(void) {
+	return (bufp > 0) ? buf[--bufp] : getchar();
+}
+
+void ungetch(int c) {
+	if (bufp >= BUFSIZE)
+		printf("ungetch: too many characters\n");
+	else
+		buf[bufp++] = c;
+}
+#endif
