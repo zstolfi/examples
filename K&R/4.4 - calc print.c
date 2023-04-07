@@ -54,18 +54,21 @@ int main(void) {
 			break;
 		/* output */
 		case RESULT:
-			if (sp > 1)
-				printf("\t%.8g\n", pop());
-			else
-				printf("stack empty\n");
+			/* The problem with the 'RESULT' case is that it
+			   will always occur after every line, meaning I
+			   can either always pop the last elem, or I can
+			   leave the end calculation on the stack's end. */
+
+			/* Actually, that'd be sort of like a calculator
+			   history feature.... Totally a intentional! :D */
+		case PRINT_TOP:
+			if (sp > 0)
+				printf("top of stack:\t%.8g\n", val[sp-1]);
 			break;
 		case PRINT_FULL:
 			for (i=0; i < sp; i++)
 				printf("\t%.8g", val[i]);
-			printf(" %d\n", sp);
-			break;
-		case PRINT_TOP:
-			printf("\t%.8g\n", val[sp-1]);
+			printf("\n");
 			break;
 		case DUPLICATE_TOP:
 			push(val[sp-1]);
@@ -119,10 +122,20 @@ int getop(char s[]) {
 
 	while (s[0] = c = getch(), c == ' ' || c == '\t')
 		;
+
 	s[1] = '\0';
-	if (!isdigit(c) && c != '.')
+	if (!isdigit(c) && c != '.' && c != '-')
 		return c;    /* not a number */
 	i = 0;
+
+	if (c == '-') {
+		if (c = getch(), !isdigit(c)) {
+			ungetch(c);
+			return s[0];    /* unary minus */
+		} else {
+			s[++i] = c;
+		}
+	}
 	if (isdigit(c))    /* collect integer part */
 		while (s[++i] = c = getch(), isdigit(c))
 			;
@@ -134,19 +147,18 @@ int getop(char s[]) {
 
 
 
-char ungetchar;    /* only 1 char needed anyway */
-bool heldchar = false;
+#define BUFSIZE 100
 
-int getch(void) { /* get a (possibly pushed back) character */
-	heldchar = false;
-	return (heldchar) ? ungetchar : getchar();
+char buf[BUFSIZE];
+int bufp = 0;
+
+int getch(void) {
+	return (bufp > 0) ? buf[--bufp] : getchar();
 }
 
-void ungetch(int c) { /* push character back on input */
-	if (heldchar)
+void ungetch(int c) {
+	if (bufp >= BUFSIZE)
 		printf("ungetch: too many characters\n");
-	else {
-		heldchar = true;
-		ungetchar = c;
-	}
+	else
+		buf[bufp++] = c;
 }
