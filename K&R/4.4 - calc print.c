@@ -92,18 +92,21 @@ int main(void) {
 
 /* push:  push f onto value stack */
 void push(double f) {
-	if (sp < MAXSTACK)
+	if (sp < MAXSTACK) {
 		val[sp++] = f;
-	else
+	} else {
 		printf("error: stack full, can't push %g\n", f);
+		exit(1);
+	}
 }
 
 /* pop:  pop and return top value from stack */
 double pop(void) {
-	if (sp > 0)
+	if (sp > 0) {
 		return val[--sp];
-	else {
+	} else {
 		printf("error: stack empty\n");
+		exit(1);
 		return 0.0;
 	}
 }
@@ -111,7 +114,6 @@ double pop(void) {
 
 
 #include <ctype.h>
-#include <stdbool.h>
 
 int getch(void);
 void ungetch(int);
