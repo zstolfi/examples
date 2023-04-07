@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-/* naive approach, this doesn't work on example 4 */
+#if 0 /* naive approach, this doesn't work on example 4 */
 int strrindex(char s[], char t[]) {
 	int slen = strlen(s);
 	int tlen = strlen(t);
@@ -17,12 +17,27 @@ int strrindex(char s[], char t[]) {
 	for (i=j=0; i < slen; i++) {
 		if (s[i] == t[j]) j++; else j = 0;
 		if (j == tlen)
-			result = i, j = 0;
+			result = i-tlen+1, j = 0;
 	}
 	return result;
 }
+#else /* correct behavior */
+int strrindex(char s[], char t[]) {
+	int slen = strlen(s);
+	int tlen = strlen(t);
+	int result = -1;
+	if (slen == 0 || tlen == 0) { return result; }
 
-
+	int i, j;
+	for (i=0; i < slen; i++) {
+		for (j=0; j < tlen; j++)
+			if (s[i+j] != t[j]) break;
+		if (j == tlen)
+			result = i;
+	}
+	return result;
+}
+#endif
 
 #include <stdio.h>
 
