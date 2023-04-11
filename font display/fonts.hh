@@ -21,6 +21,24 @@ using Font = std::map<char, CharData>;
 const std::map<std::string, Font> fonts {
 	{ "font 2", Font {
 
+	{ ' ', CharData { 13,16,
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             "
+	"             " } },
+
 	{ 'A', CharData { 13,16,
 	"    #####    "
 	"    ##  #    "
