@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL.h>
+#include "draw.hh"
 
 class Window {
 private:
@@ -7,12 +8,13 @@ private:
 	const int W;
 	const int H;
 	SDL_Window* window;
-
-public:
 	SDL_Surface* surface;
 
+public:
+	Canvas* canvas;
+
 	Window(std::string title, const int W, const int H)
-	: title(title), W(W), H(H) {}
+	: title{title}, W{W}, H{H} {}
 
 	bool init() {
 		// start video
@@ -25,6 +27,7 @@ public:
 		if (window == NULL)  return false;
 
 		surface = SDL_GetWindowSurface(window);
+		canvas = new Canvas(surface);
 		// SDL_CaptureMouse(SDL_TRUE);
 		return true;
 	}
@@ -34,11 +37,13 @@ public:
 		return true;
 	}
 
-	void update() {
+	void draw() {
+		canvas->draw();
 		SDL_UpdateWindowSurface(window);
 	}
 
 	void close() {
+		delete canvas;
 		SDL_DestroyWindow(window);
 		SDL_Quit();
 	}

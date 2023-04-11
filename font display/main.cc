@@ -3,15 +3,16 @@
 #include <string>
 #include "window.hh"
 
-int main(int argc, char* args[]) {
-	const int W = 800;
-	const int H = 600;
-
-	Window window("Blank SDL Project", W, H);
+int main(int argc, char* argv[]) {
+	Window window("Pixel Font Experiments", 800, 600);
 	if (!window.init())      { std::exit(1); }
 	if (!window.loadMedia()) { std::exit(2); }
 
 	std::cout << "Window initialized.\n";
+
+	std::string text = "EXAMPLE STRING";
+	unsigned frameCount = 0;
+	bool redraw = true;
 
 	/* MAIN LOOP */
 	for (bool quit=false; !quit; ) {
@@ -23,18 +24,17 @@ int main(int argc, char* args[]) {
 
 			case SDL_KEYDOWN:
 				switch (ev.key.keysym.sym) {
-				case SDLK_ESCAPE: { quit = true; break; }
+				case SDLK_ESCAPE: { quit = true; } break;
+				case SDLK_RETURN: { redraw = true; } break;
 			} break;
 		} }
 
-		for (std::size_t i=0; i < W*H; i++) {
-			unsigned* pixels = (unsigned*)window.surface->pixels;
-			pixels[i] = 0xFFFFFFFF;
-		}
-		window.update();
+		if (redraw) {
+			window.draw();
 
-		// TODO: figure out proper fps capping
-		// SDL_Delay(1000/60);
+			frameCount++;
+			redraw = false;
+		}
 	}
 
 	return 0;
