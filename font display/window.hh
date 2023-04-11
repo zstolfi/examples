@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include "draw.hh"
+#include "game state.hh"
 
 class Window {
 private:
@@ -37,8 +38,8 @@ public:
 		return true;
 	}
 
-	void draw() {
-		canvas->draw();
+	void draw(GameState& s) {
+		canvas->draw(s);
 		SDL_UpdateWindowSurface(window);
 	}
 

@@ -10,8 +10,7 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Window initialized.\n";
 
-	std::string text = "EXAMPLE STRING";
-	unsigned frameCount = 0;
+	GameState state { .text = "EXAMPLE STRING" };
 	bool redraw = true;
 
 	/* MAIN LOOP */
@@ -30,9 +29,9 @@ int main(int argc, char* argv[]) {
 		} }
 
 		if (redraw) {
-			window.draw();
+			window.draw(state);
 
-			frameCount++;
+			state.frameCount++;
 			redraw = false;
 		}
 	}
