@@ -33,8 +33,14 @@ public:
 		int cursorX = 10;
 		int cursorY = 10;
 		for (char c : s.text) {
-			if (!font.contains(c)) { continue; }
-			const CharData& glyph = font.at(c);
+			if (c == '\n') {
+				cursorX = 10;
+				cursorY += font.lineHeight + 3;
+				continue;
+			}
+			if (!font.glyphs.contains(c)) { continue; }
+
+			const CharData& glyph = font.glyphs.at(c);
 			
 			for (unsigned y=0; y < glyph.h; y++) {
 			for (unsigned x=0; x < glyph.w; x++) {
