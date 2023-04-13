@@ -1,7 +1,7 @@
 #pragma once
 #include <SDL.h>
+#include <memory>
 #include "draw.hh"
-#include "game state.hh"
 
 class Window {
 private:
@@ -12,7 +12,7 @@ private:
 	SDL_Surface* surface;
 
 public:
-	Canvas* canvas;
+	std::unique_ptr<Canvas> canvas;
 
 	Window(std::string title, const int W, const int H)
 	: title{title}, W{W}, H{H} {}
@@ -28,7 +28,7 @@ public:
 		if (window == NULL)  return false;
 
 		surface = SDL_GetWindowSurface(window);
-		canvas = new Canvas(surface);
+		canvas = std::make_unique<Canvas>(surface);
 		// SDL_CaptureMouse(SDL_TRUE);
 		return true;
 	}
@@ -38,13 +38,12 @@ public:
 		return true;
 	}
 
-	void draw(GameState& s) {
+	void draw(const auto& s) {
 		canvas->draw(s);
 		SDL_UpdateWindowSurface(window);
 	}
 
 	void close() {
-		delete canvas;
 		SDL_DestroyWindow(window);
 		SDL_Quit();
 	}

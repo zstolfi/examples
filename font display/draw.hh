@@ -23,7 +23,7 @@ public:
 	, W{surface->w}
 	, H{surface->h} {}
 
-	void draw(GameState& s) {
+	void draw(const GameState& s) {
 		for (int i=0; i < W*H; i++) {
 			pixels[i] = 0xFFFFFFFF;
 		}
