@@ -44,6 +44,8 @@ int main(int argc, char* argv[]) {
 			state.frameCount++;
 			redraw = false;
 		}
+
+		SDL_Delay(1000/60);
 	}
 
 	return 0;
