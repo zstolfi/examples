@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include "game state.hh"
+#include "window.hh"
 #include "fonts.hh"
 
 class Canvas {
@@ -23,12 +24,12 @@ public:
 	, W{surface->w}
 	, H{surface->h} {}
 
-	void draw(const GameState& s) {
+	void draw(const Media& media, const GameState& s) {
 		for (int i=0; i < W*H; i++) {
 			pixels[i] = 0xFFFFFFFF;
 		}
 
-		const Font& font = fonts.at("font 2");
+		const Font& font = *s.selectedFont;
 
 		int cursorX = 10;
 		int cursorY = 10;

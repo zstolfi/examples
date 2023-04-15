@@ -14,7 +14,7 @@ struct CharData {
 	{
 		pixels.resize(w*h);
 		for (std::size_t i=0; i < w*h; i++) {
-			pixels[i] = str[i] != ' ';
+			pixels[i] = (str[i] != ' ');
 		}
 	}
 };
@@ -25,17 +25,19 @@ struct Font {
 	std::map<char, CharData> glyphs;
 };
 
-std::optional<Font> parseFont(std::istream s) {
+
+
+std::optional<Font> parseFont(std::istream& s) {
 	std::optional<Font> result = std::nullopt;
 
-	auto isWhitespace = [ ](char c) {
+	auto isWhitespace = [](char c) {
 		return c==' ' || c=='\t' || c=='\0';
 	};
-	auto parseNum  = [ ](std::string s) -> int {
+	auto parseNum = [](std::string str) -> int {
 		if (str[0] == '\'' && str[2] == '\'') { return str[1]; }
 		if (str.starts_with("0x")) { return std::stoi(str.substr(2), nullptr,  16); }
 		return std::stoi(str);
-	}
+	};
 	auto nextArg = [&](std::string& line, std::size_t& i) -> std::string {
 		while (isWhitespace(line[i])) { i++; }
 		std::size_t len = 0;
@@ -43,7 +45,7 @@ std::optional<Font> parseFont(std::istream s) {
 		auto result = line.substr(i, len);
 		i += len;
 		return result;
-	}
+	};
 
 	/* ~~~ Parse Variables ~~~ */
 	Font currentFont {};
@@ -53,7 +55,7 @@ std::optional<Font> parseFont(std::istream s) {
 	std::string currentString {};
 	/* ~~~~~~~~~~~~~~~~~~~~~~~ */
 
-	const MAX_LINE = 1024;
+	const int MAX_LINE = 1024;
 	std::string line {};
 	line.resize(MAX_LINE);
 	while (s.getline(line.data(), MAX_LINE)) {
@@ -98,12 +100,15 @@ std::optional<Font> parseFont(std::istream s) {
 		// Char end
 		if (line.substr(i).starts_with("CharEnd") && isWhitespace(line[i+7])) {
 			i += 7;
-			currentFont.glyphs[currentChar] = CharData {
-				currentCharW, currentCharH, currentString
-			};
+			// currentFont.glyphs.emplace(currentChar,
+			// 	currentCharW, currentCharH, currentString
+			// );
+			currentFont.glyphs.insert({currentChar,
+				CharData { currentCharW, currentCharH, currentString }
+			});
 			continue;
 		}
 	}
-	
+
 	return result;
 }

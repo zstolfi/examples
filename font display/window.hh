@@ -1,7 +1,11 @@
 #pragma once
 #include <SDL.h>
 #include <memory>
+#include <vector>
+#include <fstream>
+#include "game state.hh"
 #include "draw.hh"
+#include "fonts.hh"
 
 class Window {
 private:
@@ -13,6 +17,7 @@ private:
 
 public:
 	std::unique_ptr<Canvas> canvas;
+	Media media;
 
 	Window(std::string title, const int W, const int H)
 	: title{title}, W{W}, H{H} {}
@@ -34,12 +39,16 @@ public:
 	}
 
 	bool loadMedia() {
-		// currently nothing to load
+		std::ifstream file {"font 2.txt"};
+		if (!file) { return false; }
+		while (auto font = parseFont(file)) {
+			media.fonts.push_back(*font);
+		}
 		return true;
 	}
 
-	void draw(const auto& s) {
-		canvas->draw(s);
+	void draw(const GameState& s) {
+		canvas->draw(media, s);
 		SDL_UpdateWindowSurface(window);
 	}
 

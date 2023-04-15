@@ -20,7 +20,16 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Window initialized.\n";
 
-	GameState state { .text = settings.text };
+	std::string fontName = "font_2";
+	std::cout << "Searching font: " << fontName << "\n";
+	Font* font = nullptr;
+	for (auto& f : window.media.fonts) {
+		if (f.name == fontName) { font = &f; break; }
+	}
+	if (!font) { std::cout << "Font not found!\n"; std::exit(3); }
+	else { std::cout << "Font found.\n"; }
+
+	GameState state { .text = settings.text, .selectedFont = font };
 	bool redraw = true;
 
 	/* MAIN LOOP */
