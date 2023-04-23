@@ -1,0 +1,1 @@
+E=(n)=>String.fromCharCode(n);a="E=(n)=>String.fromCharCode(n);a=#;console.log(a.replace(E(35),E(34)+a+E(34)));";console.log(a.replace(E(35),E(34)+a+E(34)));
