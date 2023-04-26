@@ -7,24 +7,27 @@ function count(list) {
 	return result;
 }
 
+let t;
 let tries = [];
-let t = [0,0,0,0,0,0,0,0,0,0];
+let loops = [];
+
+function compare(c, d) {
+	return undefined == [0,1,2,3,4,5,6,7,8,9].find( (i) => c[i] != d[i] );
+}
 
 function indexOf(c) {
-	let result = -1;
-	for (let i=0; i<tries.length; i++) {
-		let match = true;
-		for (let j=0; j<10; j++) {
-			if (c[j] != tries[i][j]) { match = false; }
-		}
-		if (match) { return i; }
-	}
-	return result;
+	return tries.findIndex( (d) => compare(c,d) );
 }
+
+
+
+t = [0,0,0,0,0,0,0,0,0,0];
 
 while (indexOf(t) == -1) {
 	tries.push(t);
 	t = count(t);
+} /**/ {
+	loops.push({c: t, length: tries.length - indexOf(t)});
 }
 
-console.log(tries);
+console.log(loops);
