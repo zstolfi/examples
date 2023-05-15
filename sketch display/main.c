@@ -8,6 +8,7 @@ SDL_Surface* surface = NULL;
 unsigned* pixels = NULL;
 
 int init_window(void) {
+	printf("Creating window...\n");
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) 
 		return error("SDL uninitialized.");
 	window = SDL_CreateWindow("Sketch Viewer",
@@ -33,6 +34,21 @@ void delete_window(void) {
 
 
 /* Sketch stuff */
+#define MAX_LINES (16*1024)
+
+struct line { short x0, y0, x1, y1; } lines[MAX_LINES];
+unsigned numLines = 0;
+
+short val(char c) {
+	return ('0' <= c&&c <= '9')
+		? c - '0'
+		: c - 'a' + 10;
+}
+
+short dec(char buf[3]) {
+	return 36*val(buf[0]) + val(buf[1]);
+}
+
 int parse_args(int argc, char* argv[]) {
 	if (argc <= 1)
 		return error("No sketch file provided.");
@@ -40,16 +56,42 @@ int parse_args(int argc, char* argv[]) {
 	if (!fp)
 		return error("Sketch file could not be opened.");
 
-	for (int c; (c = fgetc(fp)) != EOF; ) { putchar(c); }
+	printf("Decoding sketch...\n");
+	char buf[3]; /* 2 chars */
+	int c;
+	ungetc(' ', fp);
+
+	short x,y;
+	while (!feof(fp)) {
+		c = fgetc(fp);
+		if (c == EOF) { break; }
+		if (c == '|') { /*break;*/ }
+		if (c == ' ') {
+			x = dec(fgets(buf, 3, fp));
+			y = dec(fgets(buf, 3, fp));
+		} else {
+			ungetc(c, fp);
+			short x0 = x, y0 = y;
+			lines[numLines++] = (struct line) {
+				.x0 = x0,
+				.y0 = y0,
+				.x1 = x = dec(fgets(buf, 3, fp)),
+				.y1 = y = dec(fgets(buf, 3, fp))
+			};
+		}
+	}
+
+	printf("%d lines.\n", numLines);
+	for (int i=0; i<numLines; i++) {
+		printf("lines[%d]:\t", i);
+		printf("\tx0: %d, y0: %d, x1: %d, y1: %d\n", lines[i].x0, lines[i].y0, lines[i].x1, lines[i].y1);
+	}
+
+	fclose(fp);
 	return 0;
 }
 
 
-
-#define MAX_LINES (16*1024)
-
-struct line { short x0, y0, x1, y1; } lines[MAX_LINES];
-unsigned numLines = 0;
 
 void set_pixel(int x, int y, unsigned c) {
 	pixels[y * surface->w + x] = c;
