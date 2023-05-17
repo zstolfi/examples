@@ -34,10 +34,7 @@ void delete_window(void) {
 
 
 /* Sketch stuff */
-#define MAX_LINES (16*1024)
-
-struct line { short x0, y0, x1, y1; } lines[MAX_LINES];
-unsigned numLines = 0;
+#include "lines.h"
 
 short val(char c) {
 	return ('0' <= c&&c <= '9')
@@ -81,11 +78,11 @@ int parse_args(int argc, char* argv[]) {
 		}
 	}
 
-	printf("%d lines.\n", numLines);
-	for (int i=0; i<numLines; i++) {
-		printf("lines[%d]:\t", i);
-		printf("\tx0: %d, y0: %d, x1: %d, y1: %d\n", lines[i].x0, lines[i].y0, lines[i].x1, lines[i].y1);
-	}
+	// printf("%d lines.\n", numLines);
+	// for (int i=0; i<numLines; i++) {
+	// 	printf("lines[%d]:\t", i);
+	// 	printf("\tx0: %d, y0: %d, x1: %d, y1: %d\n", lines[i].x0, lines[i].y0, lines[i].x1, lines[i].y1);
+	// }
 
 	fclose(fp);
 	return 0;
@@ -105,19 +102,40 @@ int main(int argc, char* argv[]) {
 	if (parse_args(argc, argv) != 0) { return 1; }
 	if (init_window() != 0) { return 2; }
 	int running = 1;
+	int frameCount = 0;
 
-	for (int y=0; y<surface->h; y++) {
-	for (int x=0; x<surface->w; x++) {
+	/* setup */
+	for (int i=0; i<800*600; i++) {
 		/*  background color  */
 		unsigned c = 0xFFFFFFFF;
-		set_pixel(x,y,c);
-	} }
-	SDL_UpdateWindowSurface(window);
+		set_pixel(i%800, i/800, c);
+	}
 
+	/* draw */
 	while (running) {
 		for (SDL_Event event; SDL_PollEvent(&event); ) {
 			if (event.type == SDL_QUIT) { running = 0; }
 		}
+		
+
+		for (int j=4*frameCount; j<4*(frameCount+1) && j<numLines; j++) {
+			// printf("drawing line #%d...\n", j);
+			struct line bounds = line_bounds(lines[j]);
+			int cap0 = j>0;
+			int cap1 = j<numLines-1;
+			cap0 = cap0 && lines[j-1].x1 == lines[j].x0 && lines[j-1].y1 == lines[j].y0;
+			cap1 = cap1 && lines[j+1].x0 == lines[j].x1 && lines[j+1].y0 == lines[j].y1;
+			for (int y=bounds.y0; y<bounds.y1; y++) {
+			for (int x=bounds.x0; x<bounds.x1; x++) {
+				unsigned char c = draw_line(x,y, lines[j], !cap0, !cap1)*255;
+				unsigned char cOld = (get_pixel(x,y) >> 16) & 0xFF;
+				c = MIN(c, cOld);
+				set_pixel(x,y, 0xFF<<24 | c<<16 | c<<8 | c);
+			} }
+		}
+		frameCount++;
+		SDL_UpdateWindowSurface(window);
+		SDL_Delay(1000/60);
 	}
 
 	delete_window();
