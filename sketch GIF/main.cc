@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <map>
 
 std::vector<std::byte> output;
 
@@ -70,6 +71,65 @@ std::vector<uint8_t> packcodes(std::vector<Code> codes) {
 	return result;
 }
 
+std::vector<Code> LZWencode(std::vector<uint8_t> data) {
+	if (data.empty()) { return {{0x101, 9}}; }
+	std::vector<Code> result {};
+	const uint16_t clearCode = 0x100;
+	const uint16_t endCode = 0x101;
+	uint16_t val = 0;
+	uint8_t bitLen = 9;
+
+	std::map<
+		std::vector<uint8_t>,
+		uint16_t
+	> dict;
+
+	auto init = [&]() {
+		dict.clear();
+		std::vector <uint8_t> i = {0};
+		for (val=0; val<=255; val++) {
+			i[0] = val;
+			dict[i] = val;
+		}
+		val += 2;
+		bitLen = 9;
+	};
+
+	auto insert = [&](uint16_t code) {
+		result.push_back({code, bitLen});
+		if (val-1 == 1 << bitLen) { bitLen++; }
+		if (bitLen > 12) {
+			result.push_back({clearCode, 12});
+			init();
+		}
+	};
+
+    auto subvector = [](const std::vector<uint8_t>& v) {
+        return std::vector<uint8_t> (v.begin(), v.end()-1);
+    };
+
+	insert(clearCode);
+	init();
+
+	auto it = data.begin();
+	std::vector<uint8_t> indexBuffer = {*it++};
+
+	for (; it != data.end(); it++) {
+		indexBuffer.push_back(*it);
+		if (!dict.contains(indexBuffer)) {
+			dict[indexBuffer] = val++;
+			insert(dict.at(subvector(indexBuffer)));
+			indexBuffer = {indexBuffer.back()};
+		}
+        if (it+1 == data.end()) {
+			insert(dict.at(indexBuffer));
+        }
+	}
+
+	result.push_back({endCode, bitLen});
+	return result;
+}
+
 
 
 struct Bounds {
@@ -101,7 +161,7 @@ void GIFloopheader() {
 	printstring("NETSCAPE2.0");
 	printchar(3); /* size */
 	printchar(1); /* idk?? */
-	printnumber(0); /* loop forever */
+	printnumber(0); /* 0 = loop forever */
 	printchar(0); /* block end */
 }
 
@@ -121,7 +181,7 @@ void GIFimageduration(uint16_t duration) {
 	printchar(0); /* block end */
 }
 
-void GIFimage(Bounds b, std::vector<Code>&& data) {
+void GIFimage(Bounds b, const std::vector<uint8_t>& data) {
 	/* Image Descriptor */
 	printchar(0x2C);
 	printnumber(b.x0); /* left pos. */
@@ -131,8 +191,9 @@ void GIFimage(Bounds b, std::vector<Code>&& data) {
 	printchar(0b0'0'0'00'000); /* flags */
 
 	/* Table Based Image Data */
-	printchar(data[0].bitLen-1); /* starting size */
-	printdata(packcodes(data));
+	auto dataOut = LZWencode(data);
+	printchar(dataOut[0].bitLen-1); /* starting size */
+	printdata(packcodes(dataOut));
 }
 
 
@@ -140,23 +201,17 @@ void GIFimage(Bounds b, std::vector<Code>&& data) {
 int main(int argc, char* argv[]) {
 	GIFheader(800, 600);
 
-	const bool loop = false;
+	const bool loop = true;
 	if (loop) { GIFloopheader(); }
 
 	GIFcomment("Zander was here!");
 
 	GIFimageduration(100/25); /* 25 fps */
 
-	std::vector<Code> bkgData {};
-	bkgData.push_back({0x100, 9}); /* clear code */
-	bkgData.push_back({0x0FF, 9}); /* color index */
-	for (uint16_t i=0x102; i<=0x1FF; i++) { bkgData.push_back({i, 9}); }
-	for (uint16_t i=0x200; i<=0x3FF; i++) { bkgData.push_back({i,10}); }
-	for (uint16_t i=0x400; i<=0x4D3; i++) { bkgData.push_back({i,11}); }
-	bkgData.push_back({0x222, 11});
-	bkgData.push_back({0x101, 11}); /* end code */
+	std::vector<uint8_t> bkgData {};
+	bkgData.resize(800*600, 0xFF);
 
-	GIFimage({0, 0, 800, 600}, std::move(bkgData));
+	GIFimage({0, 0, 800, 600}, bkgData);
 
 	GIFtrailer();
 
