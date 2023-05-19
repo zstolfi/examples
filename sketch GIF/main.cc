@@ -72,50 +72,81 @@ std::vector<uint8_t> packcodes(std::vector<Code> codes) {
 
 
 
-int main(int argc, char* argv[]) {
-	/* header */
+struct Bounds {
+	unsigned x0, y0, x1, y1;
+};
+
+void GIFheader(uint16_t W, uint16_t H) {
+	/* Header */
 	printstring("GIF89a");
-	printnumber(800); /* width */
-	printnumber(600); /* height */
+	printnumber(W); /* width */
+	printnumber(H); /* height */
 	printchar(0b1'111'0'111); /* color table flags */
 	printchar(255); /* background color */
 	printchar(0); /* pixel aspect ratio (ignore) */
 	for (std::size_t i=0; i<=255; i++) {
 		printchar(i); printchar(i); printchar(i); /* global color table (grayscale) */
 	}
+}
 
-	/* loop extension */
+void GIFtrailer() {
+	/* Trailer */
+	printchar(0x3B);
+}
+
+void GIFloopheader() {
+	/* Application Extension */
 	printchar(0x21); printchar(0xFF);
 	printchar(11); /* size */
 	printstring("NETSCAPE2.0");
 	printchar(3); /* size */
 	printchar(1); /* idk?? */
-	const bool loop = false;
-	printnumber(!loop); /* 0 = loop forever, 1 = no loop */
+	printnumber(0); /* loop forever */
 	printchar(0); /* block end */
+}
 
-	/* comment */
+void GIFcomment(const char* str) {
+	/* Comment Extension */
 	printchar(0x21); printchar(0xFE);
-	printdata("Zander was here!");
+	printdata(str);
+}
 
-	/* graphic control extension */
+void GIFimageduration(uint16_t duration) {
+	/* Graphic Control Extension */
 	printchar(0x21); printchar(0xF9);
 	printchar(4); /* size */
 	printchar(0b000'001'0'0); /* flags */
-	printnumber(4); /* 25 fps : 0.04 sec/frame */
+	printnumber(duration);
 	printchar(0); /* alpha color index (ignore) */
 	printchar(0); /* block end */
+}
 
-	/* image descriptor */
+void GIFimage(Bounds b, std::vector<Code>&& data) {
+	/* Image Descriptor */
 	printchar(0x2C);
-	printnumber(0); /* x0 */
-	printnumber(0); /* y0 */
-	printnumber(800); /* width */
-	printnumber(600); /* height */
+	printnumber(b.x0); /* left pos. */
+	printnumber(b.y0); /* top pos. */
+	printnumber(b.x1 - b.x0); /* width */
+	printnumber(b.y1 - b.y0); /* height */
 	printchar(0b0'0'0'00'000); /* flags */
 
-	/* image data (LZW) */
-	printchar(8); /* starting bitLen-1 */
+	/* Table Based Image Data */
+	printchar(data[0].bitLen-1); /* starting size */
+	printdata(packcodes(data));
+}
+
+
+
+int main(int argc, char* argv[]) {
+	GIFheader(800, 600);
+
+	const bool loop = false;
+	if (loop) { GIFloopheader(); }
+
+	GIFcomment("Zander was here!");
+
+	GIFimageduration(100/25); /* 25 fps */
+
 	std::vector<Code> bkgData {};
 	bkgData.push_back({0x100, 9}); /* clear code */
 	bkgData.push_back({0x0FF, 9}); /* color index */
@@ -124,9 +155,10 @@ int main(int argc, char* argv[]) {
 	for (uint16_t i=0x400; i<=0x4D3; i++) { bkgData.push_back({i,11}); }
 	bkgData.push_back({0x222, 11});
 	bkgData.push_back({0x101, 11}); /* end code */
-	printdata(packcodes(bkgData));
-	
-	printchar(0x3B); /* GIF end */
+
+	GIFimage({0, 0, 800, 600}, std::move(bkgData));
+
+	GIFtrailer();
 
 	/* I would directly output the file through cout   
 	   but on my machine that will always print /r/n   
