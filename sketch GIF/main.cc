@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstdint>
 #include <map>
+#include <optional>
+#include <algorithm>
 
 std::vector<std::byte> output;
 
@@ -103,9 +105,9 @@ std::vector<Code> LZWencode(std::vector<uint8_t> data) {
 		}
 	};
 
-    auto subvector = [](const std::vector<uint8_t>& v) {
-        return std::vector<uint8_t> (v.begin(), v.end()-1);
-    };
+	auto subvector = [](const std::vector<uint8_t>& v) {
+		return std::vector<uint8_t> (v.begin(), v.end()-1);
+	};
 
 	insert(clearCode);
 	init();
@@ -120,20 +122,37 @@ std::vector<Code> LZWencode(std::vector<uint8_t> data) {
 			insert(dict.at(subvector(indexBuffer)));
 			indexBuffer = {indexBuffer.back()};
 		}
-        if (it+1 == data.end()) {
+		if (it+1 == data.end()) {
 			insert(dict.at(indexBuffer));
-        }
+		}
 	}
 
 	result.push_back({endCode, bitLen});
 	return result;
 }
 
-
-
 struct Bounds {
-	unsigned x0, y0, x1, y1;
+	uint16_t x0, y0, x1, y1;
 };
+
+std::optional<Bounds> getbounds(std::vector<uint8_t> data, uint16_t W, uint16_t H) {
+	Bounds result = {W, H, 0, 0};
+	bool empty = true;
+	for (std::size_t i=0; i<W*H; i++) {
+		if (data[i] == 0) { continue; }
+		uint16_t x = i%W, y = i/W;
+		empty = false;
+		result.x0 = std::min<uint16_t>(result.x0, x);
+		result.y0 = std::min<uint16_t>(result.y0, y);
+		result.x1 = std::max<uint16_t>(result.x1, x+1);
+		result.y1 = std::max<uint16_t>(result.y1, y+1);
+		
+	}
+	if (empty) { return std::nullopt; }
+	return result;
+}
+
+
 
 void GIFheader(uint16_t W, uint16_t H) {
 	/* Header */
@@ -208,16 +227,35 @@ int main(int argc, char* argv[]) {
 	GIFcomment("Epic GIF encoded by Zander.");
 
 
-	std::vector<uint8_t> imgData {};
-	imgData.resize(800*600);
+	std::vector<uint8_t> imgData (800*600);
+	std::vector<uint8_t> diffData(800*600);
+	std::vector<uint8_t> cropData(800*600);
 
 	for (int frame=0; frame<16; frame++) {
 		for (std::size_t i=0; i<800*600; i++) {
-			imgData[i] = getpixel(i%800, i/800, frame/16.0);
+			auto pixel = getpixel(i%800, i/800, frame/16.0);
+			if (frame > 0) { diffData[i] = pixel - imgData[i]; }
+			imgData[i] = pixel;
 		}
 
+		Bounds b = {0, 0, 800, 600};
+		if (frame > 0) {
+			if (auto bSmall = getbounds(diffData, 800, 600)) {
+				b = *bSmall;
+			} else {
+				/* There's no difference between the two frames, */
+				b = {0,0,1,1}; /* update 1 pixel just to be safe */
+			}
+		}
+
+		cropData.clear();
+		for (uint16_t y=b.y0; y<b.y1; y++) {
+		for (uint16_t x=b.x0; x<b.x1; x++) {
+			cropData.push_back(imgData[y * 800 + x]);
+		} }
+
 		GIFimageduration(100/25); /* 25 fps */
-		GIFimage({0, 0, 800, 600}, imgData);
+		GIFimage(b, cropData);
 	}
 
 	GIFtrailer();
