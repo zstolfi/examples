@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <vector>
 #include <cstdint>
@@ -198,20 +197,28 @@ void GIFimage(Bounds b, const std::vector<uint8_t>& data) {
 
 
 
+#include "anim.cc"
+
 int main(int argc, char* argv[]) {
 	GIFheader(800, 600);
 
 	const bool loop = true;
 	if (loop) { GIFloopheader(); }
 
-	GIFcomment("Zander was here!");
+	GIFcomment("Epic GIF encoded by Zander.");
 
-	GIFimageduration(100/25); /* 25 fps */
 
-	std::vector<uint8_t> bkgData {};
-	bkgData.resize(800*600, 0xFF);
+	std::vector<uint8_t> imgData {};
+	imgData.resize(800*600);
 
-	GIFimage({0, 0, 800, 600}, bkgData);
+	for (int frame=0; frame<16; frame++) {
+		for (std::size_t i=0; i<800*600; i++) {
+			imgData[i] = getpixel(i%800, i/800, frame/16.0);
+		}
+
+		GIFimageduration(100/25); /* 25 fps */
+		GIFimage({0, 0, 800, 600}, imgData);
+	}
 
 	GIFtrailer();
 
