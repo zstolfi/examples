@@ -26,6 +26,7 @@ int main(void) {
 	while ((type = getop(s)) != EOF) {
 		switch (type) {
 		case NUMBER:
+			// printf("NUMBER: %s\n", s);
 			push(atof(s));
 			break;
 		case ADD:
@@ -59,7 +60,6 @@ int main(void) {
 			printf("error: unknown command %s\n", s);
 		}
 	}
-	
 	return 0;
 }
 
@@ -72,21 +72,18 @@ double val[MAXSTACK];    /* value stack */
 
 /* push:  push f onto value stack */
 void push(double f) {
-	if (sp < MAXSTACK) {
+	if (sp < MAXSTACK)
 		val[sp++] = f;
-	} else {
+	else
 		printf("error: stack full, can't push %g\n", f);
-		exit(1);
-	}
 }
 
 /* pop:  pop and return top value from stack */
 double pop(void) {
-	if (sp > 0) {
+	if (sp > 0)
 		return val[--sp];
-	} else {
+	else {
 		printf("error: stack empty\n");
-		exit(1);
 		return 0.0;
 	}
 }
@@ -94,6 +91,7 @@ double pop(void) {
 
 
 #include <ctype.h>
+#include <stdbool.h>
 
 int getch(void);
 void ungetch(int);
@@ -104,20 +102,10 @@ int getop(char s[]) {
 
 	while (s[0] = c = getch(), c == ' ' || c == '\t')
 		;
-
 	s[1] = '\0';
-	if (!isdigit(c) && c != '.' && c != '-')
+	if (!isdigit(c) && c != '.')
 		return c;    /* not a number */
 	i = 0;
-
-	if (c == '-') {
-		if (c = getch(), !isdigit(c)) {
-			ungetch(c);
-			return s[0];    /* unary minus */
-		} else {
-			s[++i] = c;
-		}
-	}
 	if (isdigit(c))    /* collect integer part */
 		while (s[++i] = c = getch(), isdigit(c))
 			;
@@ -129,8 +117,6 @@ int getop(char s[]) {
 
 
 
-/* apparently I was over-clever in trying to make my own ungetch */
-#if 0
 char ungetchar;    /* only 1 char needed anyway */
 bool heldchar = false;
 
@@ -147,20 +133,3 @@ void ungetch(int c) { /* push character back on input */
 		ungetchar = c;
 	}
 }
-#else
-#define BUFSIZE 100
-
-char buf[BUFSIZE];
-int bufp = 0;
-
-int getch(void) {
-	return (bufp > 0) ? buf[--bufp] : getchar();
-}
-
-void ungetch(int c) {
-	if (bufp >= BUFSIZE)
-		printf("ungetch: too many characters\n");
-	else
-		buf[bufp++] = c;
-}
-#endif

@@ -54,21 +54,18 @@ int main(void) {
 			break;
 		/* output */
 		case RESULT:
-			/* The problem with the 'RESULT' case is that it
-			   will always occur after every line, meaning I
-			   can either always pop the last elem, or I can
-			   leave the end calculation on the stack's end. */
-
-			/* Actually, that'd be sort of like a calculator
-			   history feature.... Totally a intentional! :D */
-		case PRINT_TOP:
-			if (sp > 0)
-				printf("top of stack:\t%.8g\n", val[sp-1]);
+			if (sp > 1)
+				printf("\t%.8g\n", pop());
+			else
+				printf("stack empty\n");
 			break;
 		case PRINT_FULL:
 			for (i=0; i < sp; i++)
 				printf("\t%.8g", val[i]);
-			printf("\n");
+			printf(" %d\n", sp);
+			break;
+		case PRINT_TOP:
+			printf("\t%.8g\n", val[sp-1]);
 			break;
 		case DUPLICATE_TOP:
 			push(val[sp-1]);
@@ -86,28 +83,24 @@ int main(void) {
 			break;
 		}
 	}
-	
 	return 0;
 }
 
 
 /* push:  push f onto value stack */
 void push(double f) {
-	if (sp < MAXSTACK) {
+	if (sp < MAXSTACK)
 		val[sp++] = f;
-	} else {
+	else
 		printf("error: stack full, can't push %g\n", f);
-		exit(1);
-	}
 }
 
 /* pop:  pop and return top value from stack */
 double pop(void) {
-	if (sp > 0) {
+	if (sp > 0)
 		return val[--sp];
-	} else {
+	else {
 		printf("error: stack empty\n");
-		exit(1);
 		return 0.0;
 	}
 }
@@ -115,6 +108,7 @@ double pop(void) {
 
 
 #include <ctype.h>
+#include <stdbool.h>
 
 int getch(void);
 void ungetch(int);
@@ -125,20 +119,10 @@ int getop(char s[]) {
 
 	while (s[0] = c = getch(), c == ' ' || c == '\t')
 		;
-
 	s[1] = '\0';
-	if (!isdigit(c) && c != '.' && c != '-')
+	if (!isdigit(c) && c != '.')
 		return c;    /* not a number */
 	i = 0;
-
-	if (c == '-') {
-		if (c = getch(), !isdigit(c)) {
-			ungetch(c);
-			return s[0];    /* unary minus */
-		} else {
-			s[++i] = c;
-		}
-	}
 	if (isdigit(c))    /* collect integer part */
 		while (s[++i] = c = getch(), isdigit(c))
 			;
@@ -150,18 +134,19 @@ int getop(char s[]) {
 
 
 
-#define BUFSIZE 100
+char ungetchar;    /* only 1 char needed anyway */
+bool heldchar = false;
 
-char buf[BUFSIZE];
-int bufp = 0;
-
-int getch(void) {
-	return (bufp > 0) ? buf[--bufp] : getchar();
+int getch(void) { /* get a (possibly pushed back) character */
+	heldchar = false;
+	return (heldchar) ? ungetchar : getchar();
 }
 
-void ungetch(int c) {
-	if (bufp >= BUFSIZE)
+void ungetch(int c) { /* push character back on input */
+	if (heldchar)
 		printf("ungetch: too many characters\n");
-	else
-		buf[bufp++] = c;
+	else {
+		heldchar = true;
+		ungetchar = c;
+	}
 }
