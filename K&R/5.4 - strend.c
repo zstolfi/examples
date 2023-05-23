@@ -38,8 +38,13 @@ int main(void) {
 	     "1828");
 	test("trivial",
 	     "");
-	test("string",
-	     "longer string");
+	/* It's important to remember that str1 could be
+	   be a substring, meaning it might match beyond
+	   its intended begining, meaning the size check
+	   at lines 14-15 are necessary to the function. */
+	char* s = "full string";
+	test(&s[5],
+	     &s[0]);
 
 	return 0;
 }
