@@ -2,12 +2,19 @@
 #include "common.hh"
 #include <istream>
 
+#define DEBUG(msg) ;
+// #define DEBUG(msg) std::cout << msg;
+
 namespace /*anonymous*/ {
 	std::size_t  row = 1,  col = 1;
-	int peek(std::istream& is) { return is.peek(); }
-	int get( std::istream& is) {
+	[[maybe_unused]] int peek(std::istream& is) { return is.peek(); }
+	[[maybe_unused]] int get( std::istream& is) {
+		static bool eofReached = false;
+		if (eofReached) { printError("syntax error at EOF"); }
+
 		int c = is.get();
 		if (c == '\n') { row++, col=1; } else { col++; }
+		if (c == EOF) { eofReached = true; }
 		return c;
 	}
 
@@ -15,6 +22,9 @@ namespace /*anonymous*/ {
 	char parseChar(char, std::istream&);
 }
 
+// TODO: #define
+// TODO: #include
+// TODO: #incbin (include binary)
 auto preprocess(std::istream& is) {
 	std::vector<Line> result {};
 
@@ -30,7 +40,8 @@ auto preprocess(std::istream& is) {
 			line = { row, col };
 		}
 
-		if (state == Code) { std::cout << row << "\t" << col << "\t'" << c << "'\tCode\n";
+		if (state == Code) {
+			DEBUG(row << "\t" << col << "\t'" << c << "'\tCode\n");
 			switch (c) {
 			case '"' : state = String;
 				curString = {};         continue;
@@ -40,23 +51,28 @@ auto preprocess(std::istream& is) {
 			case '\\': state = Accept;  continue;
 			default: line.text += c;    continue;
 		} }
-		else if (state == String) { std::cout << row << "\t" << col << "\t'" << c << "'\tString\n";
+		else if (state == String) {
+			DEBUG(row << "\t" << col << "\t'" << c << "'\tString\n");
 			if (c == '"') { state = Code;
 				line.strings.push_back(curString);
 				line.text += '"';
 				continue; }
 			curString.push_back(parseChar(c,is));
 		}
-		else if (state == Char1) { std::cout << row << "\t" << col << "\t'" << c << "'\tChar1\n";
+		else if (state == Char1) {
+			DEBUG(row << "\t" << col << "\t'" << c << "'\tChar1\n");
+			if (c == '\'') { printError("empty char literal"); }
 			line.characters.push_back(parseChar(c,is));
 			state = Char2;
 		}
-		else if (state == Char2) { std::cout << row << "\t" << col << "\t'" << c << "'\tChar2\n";
+		else if (state == Char2) {
+			DEBUG(row << "\t" << col << "\t'" << c << "'\tChar2\n");
 			if (c != '\'') { printError("multi-char literal"); }
 				line.text += '\'';
 			state = Code;
 		}
-		else if (state == Comment) { std::cout << row << "\t" << col << "\t'" << c << "'\tComment\n";
+		else if (state == Comment) {
+			DEBUG(row << "\t" << col << "\t'" << c << "'\tComment\n");
 			if (c == '\n') { state = Accept; }
 		}
 	}
@@ -69,6 +85,7 @@ auto preprocess(std::istream& is) {
 
 namespace /*anonymous*/ {
 	char parseChar(char c, std::istream& is) {
+		if (c == '\n') { printError("multi-line string"); }
 		if (c != '\\') { return c; }
 		c = get(is);
 		if (c == 'x') {

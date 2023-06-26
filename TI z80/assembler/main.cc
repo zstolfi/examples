@@ -12,7 +12,6 @@
 namespace fls = std::filesystem;
 
 
-
 struct Arguments {
 	fls::path sourcePath;
 	fls::path outputPath;
@@ -54,6 +53,7 @@ private: // TODO: test this function
 	}
 };
 
+
 int main(int argc, char* argv[]) {
 	auto args = Arguments(argc, argv);
 	auto& source = args.getSource();
@@ -64,7 +64,18 @@ int main(int argc, char* argv[]) {
 	std::cout << "~~~ START ~~~\n";
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings
 	for (Line l : lines) {
-		output << "[" << l.text << "]\n";
+		output << "[" << l.text << "]";
+		for (auto& str : l.strings) {
+			output << ", \"";
+			for (char c : str) { output << c; }
+			output << "\"";
+		}
+		if (!l.characters.empty()) {
+			output << ", '";
+			for (char c : l.characters) { output << c; }
+			output << "'";
+		}
+		output << "\n";
 	}
 	std::cout << "~~~ FINISH ~~~\n";
 	return 0;
