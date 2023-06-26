@@ -61,10 +61,12 @@ int main(int argc, char* argv[]) {
 	// warn on Windows: "0x0a may output incorrectly"
 
 	/* preprocess */
+	std::cout << "~~~ START ~~~\n";
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings
 	for (Line l : lines) {
 		output << "[" << l.text << "]\n";
 	}
+	std::cout << "~~~ FINISH ~~~\n";
 	return 0;
 	/* reduce */
 	reduce(lines); // parse expressions and substitute addresses
