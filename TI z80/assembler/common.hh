@@ -13,7 +13,7 @@ struct Line {
 	std::size_t row, col;
 	std::string text;
 
-	std::vector<std::string> strings;
+	std::vector<std::vector<char>> strings;
 	std::vector<char> characters;
 
 };

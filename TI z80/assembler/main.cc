@@ -62,6 +62,10 @@ int main(int argc, char* argv[]) {
 
 	/* preprocess */
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings
+	for (Line l : lines) {
+		output << "[" << l.text << "]\n";
+	}
+	return 0;
 	/* reduce */
 	reduce(lines); // parse expressions and substitute addresses
 	/* assemble */
