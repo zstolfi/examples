@@ -61,26 +61,16 @@ int main(int argc, char* argv[]) {
 	// warn on Windows: "0x0a may output incorrectly"
 
 	/* preprocess */
-	std::cout << "~~~ START ~~~\n";
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings
-	for (Line l : lines) {
-		output << "[" << l.text << "]";
-		for (auto& str : l.strings) {
-			output << ", \"";
-			for (char c : str) { output << c; }
-			output << "\"";
-		}
-		if (!l.characters.empty()) {
-			output << ", '";
-			for (char c : l.characters) { output << c; }
-			output << "'";
-		}
-		output << "\n";
-	}
+	
+	/* reduce */
+	// as I test, I'm assuming EVERY line is a integer expression
+	std::cout << "~~~ START ~~~\n";
+	reduce(lines); // parse expressions and substitute addresses
+	for (Line l : lines)
+		output << l.text << "\n";
 	std::cout << "~~~ FINISH ~~~\n";
 	return 0;
-	/* reduce */
-	reduce(lines); // parse expressions and substitute addresses
 	/* assemble */
 	std::vector<std::byte> byteCode = assemble(lines); // look up op-codes
 

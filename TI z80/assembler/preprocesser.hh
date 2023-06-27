@@ -2,10 +2,7 @@
 #include "common.hh"
 #include <istream>
 
-#define DEBUG(msg) ;
-// #define DEBUG(msg) std::cout << msg;
-
-namespace /*anonymous*/ {
+namespace /*detail*/ {
 	std::size_t  row = 1,  col = 1;
 	[[maybe_unused]] int peek(std::istream& is) { return is.peek(); }
 	[[maybe_unused]] int get( std::istream& is) {
@@ -18,11 +15,11 @@ namespace /*anonymous*/ {
 		return c;
 	}
 
-	char hexDigit (char);
 	char parseChar(char, std::istream&);
 }
 
 // TODO: #define
+// TODO: #definefn
 // TODO: #include
 // TODO: #incbin (include binary)
 auto preprocess(std::istream& is) {
@@ -83,7 +80,7 @@ auto preprocess(std::istream& is) {
 	return result;
 }
 
-namespace /*anonymous*/ {
+namespace /*detail*/ {
 	char parseChar(char c, std::istream& is) {
 		if (c == '\n') { printError("multi-line string"); }
 		if (c != '\\') { return c; }
@@ -91,6 +88,8 @@ namespace /*anonymous*/ {
 		if (c == 'x') {
 			char h1 = get(is);
 			char h2 = get(is);
+			if (!isHexDigit(h1) || !isHexDigit(h2))
+				printError("invalid hex digit");
 			return hexDigit(h1) << 4 | hexDigit(h2);
 		}
 		/**/ if (c=='0' ) { return '\0'; }
@@ -106,12 +105,5 @@ namespace /*anonymous*/ {
 		else if (c=='\'') { return '\''; }
 		else if (c=='"' ) { return '"' ; }
 		printError("unknown esc char"); return {};
-	}
-
-	char hexDigit(char c) {
-		if ('0' <= c&&c <= '9') { return c-'0'; }
-		if ('A' <= c&&c <= 'F') { return c-'A'+10; }
-		if ('a' <= c&&c <= 'f') { return c-'a'+10; }
-		printError("invalid hex digit"); return {};
 	}
 }
