@@ -29,6 +29,19 @@ TokenList lex(std::string_view str) {
 			result.emplace_back(TokenType::Integer, sub(i,size));
 			continue;
 		}
+		// directive
+		if (str[i] == '.') {
+			while (isLetter(str[i+size]))
+				size++;
+			if (size > 1) {
+				if (auto dir = sub(i+1,size-1); dir == "equ"sv) {
+					result.emplace_back(TokenType::Assign);
+					continue;
+				} else {
+					result.emplace_back(TokenType::Directive, dir);
+					continue;
+			} }
+		}
 
 		#define Match(S,TT)                       \
 		if (sub(i,size = sizeof(S)-1) == S##sv) { \
@@ -65,6 +78,16 @@ TokenList lex(std::string_view str) {
 
 		#undef Match
 	}
+	return result;
+}
+
+auto lexAll(const std::vector<Line>& lines) {
+	std::vector<TokenList> result {};
+
+	for (auto it=lines.begin(); it!=lines.end(); ++it)
+		if (!ranges::all_of(it->text, isWhitespace))
+			result.push_back(lex(it->text));
+
 	return result;
 }
 

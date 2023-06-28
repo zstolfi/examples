@@ -26,7 +26,7 @@ struct Line {
 };
 
 enum struct TokenType {
-	   Integer, Identifier,
+	   Integer, Identifier, Directive,
 	// $
 	   ProgCounter,
 	// =       (       )

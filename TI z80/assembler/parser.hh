@@ -1,10 +1,10 @@
 #pragma once
 #include "common.hh"
-#include "lexer.hh"
 
 namespace /*detail*/ {
 	using integer = unsigned long;
 
+	integer parseStatement (std::string_view);
 	integer parseExpression(std::string_view);
 	integer parseInteger   (std::string_view);
 }
@@ -17,23 +17,16 @@ namespace /*detail*/ {
 //     .equ  =       (const assignment)
 //     .end          (stop parsing)
 
-auto reduce(std::vector<Line>& lines) {
-	std::vector<TokenList> result {};
-
-	// pass 0: remove empty lines, and lex
-	for (auto it=lines.begin(); it!=lines.end(); ++it) {
-		if (!ranges::all_of(it->text, isWhitespace))
-			result.push_back(lex(it->text));
-	}
-	return result;
+auto parse(std::vector<TokenList>& lines) {
+	std::vector<std::byte> result {};
 
 	// pass 1: evaluate all label addresses and put them into context
 	// Context ctx;
 	/* ... */
 
-	// pass 2: reduce all expressions into standard form
-	for (Line& l : lines) {
-		l.text = std::to_string(parseExpression(l.text));
+	// pass 2: execute all statements
+	for (TokenList& l : lines) {
+		/* ... */
 	}
 
 	return result;

@@ -2,8 +2,8 @@
 #include "bytes.hh"
 #include "checksum.hh"
 #include "preprocesser.hh"
-#include "reducer.hh"
-#include "assembler.hh"
+#include "lexer.hh"
+#include "parser.hh"
 
 #include <filesystem>
 #include <iostream>
@@ -30,7 +30,7 @@ struct Arguments {
 			else if (flag == 'n') { setProgramName(argv[i]), hasPrgmName = true; }
 			else    { PrintError("unknown cmd flag\n"); }
 		}
-		if (hasSource) { sourceStream = std::ifstream(sourcePath  /*            */); }
+		if (hasSource) { sourceStream = std::ifstream(sourcePath  /* * * * * * */ ); }
 		if (hasOutput) { outputStream = std::ofstream(outputPath, std::ios::binary); }
 		// TODO:
 		// if (!hasPrgmName && hasOutput) { setProgramName(outputPath.stem().c_str()) }
@@ -57,23 +57,25 @@ int main(int argc, char* argv[]) {
 	auto args = Arguments(argc, argv);
 	auto& source = args.getSource();
 	auto& output = args.getOutput();
-	// warn on Windows: "0x0a may output incorrectly"
+#ifdef WIN32
+	if (!args.hasOutput) { PrintWarning("0x0a will output incorrectly on Windows\n"); }
+#endif
 
 	/* preprocess */
-	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings
+	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings/chars
 	
-	/* reduce */
-	// as I test, I'm assuming EVERY line is a integer expression
+	/* lex */
 	PrintStatus("~~~ START ~~~\n");
-	std::vector<TokenList> asmLines = reduce(lines); // lex, parse expressions, and substitute addresses
+	std::vector<TokenList> asmLines = lexAll(lines); // transform each line as a token list
 	for (TokenList l : asmLines) {
 		for (Token t : l) { output << (int)t.type << ":" << t.value << " "; }
 		output << "\n";
 	}
 	PrintStatus("~~~ FINISH ~~~\n");
 	return 0;
+
 	/* assemble */
-	std::vector<std::byte> byteCode = assemble(asmLines); // look up op-codes
+	std::vector<std::byte> byteCode = parse(asmLines); // evaluate variables, and look up op-codes
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)
 	output << Bytes<11>("**TI83F*\x1A\x0A");
