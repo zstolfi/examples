@@ -3,6 +3,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <algorithm>
+#include <ranges>
+namespace ranges = std::ranges;
 
 #define DEBUG(msg) do {} while(0)
 // #define DEBUG(msg)    do {std::cout << msg; } while(0)
