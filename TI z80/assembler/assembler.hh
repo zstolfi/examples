@@ -1,7 +1,7 @@
 #pragma once
 #include "common.hh"
 
-auto assemble(std::vector<Line> lines) {
+auto assemble(std::vector<TokenList> lines) {
 	std::vector<std::byte> result {};
 
 	return result;

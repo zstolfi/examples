@@ -22,14 +22,14 @@ struct Arguments {
 
 	Arguments(int argc, char* argv[]) {
 		for (int i=1; i<argc; i++) {
-			if (argv[i][0] != '-') { printError("unexpected cmd arg"); }
+			if (argv[i][0] != '-') { PrintError("unexpected cmd arg\n"); }
 			char flag = argv[i++][1];
-			if (i >= argc || argv[i][0] == '-') { printError("missing cmd arg"); }
+			if (i >= argc || argv[i][0] == '-') { PrintError("missing cmd arg\n"); }
 
 			/**/ if (flag == 'i') { sourcePath = argv[i]   , hasSource   = true; }
 			else if (flag == 'o') { outputPath = argv[i]   , hasOutput   = true; }
 			else if (flag == 'n') { setProgramName(argv[i]), hasPrgmName = true; }
-			else    { printError("unknown cmd flag"); }
+			else    { PrintError("unknown cmd flag\n"); }
 		}
 		if (hasSource) { sourceStream = std::ifstream(sourcePath  /*            */); }
 		if (hasOutput) { outputStream = std::ofstream(outputPath, std::ios::binary); }
@@ -48,8 +48,8 @@ private: // TODO: test this function
 			else if (c == '0') { programName[i] = 'Z'+1; } // 0 for theta
 			else { validChars = false; i--; }
 		}
-		if (*str) { printWarning("prgm name was truncated"); }
-		if (!validChars) { printWarning("prgm name ignores invalid chars"); }
+		if (*str) { PrintWarning("prgm name was truncated\n"); }
+		if (!validChars) { PrintWarning("prgm name ignores invalid chars\n"); }
 	}
 };
 
@@ -65,13 +65,13 @@ int main(int argc, char* argv[]) {
 	
 	/* reduce */
 	// as I test, I'm assuming EVERY line is a integer expression
-	std::cout << "~~~ START ~~~\n";
+	PrintStatus("~~~ START ~~~\n");
 	std::vector<TokenList> asmLines = reduce(lines); // lex, parse expressions, and substitute addresses
 	for (TokenList l : asmLines) {
-		for (Token t : l) { output << t << " "; }
+		for (Token t : l) { output << (int)t.type << ":" << t.value << " "; }
 		output << "\n";
 	}
-	std::cout << "~~~ FINISH ~~~\n";
+	PrintStatus("~~~ FINISH ~~~\n");
 	return 0;
 	/* assemble */
 	std::vector<std::byte> byteCode = assemble(asmLines); // look up op-codes

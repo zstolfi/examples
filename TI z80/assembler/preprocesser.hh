@@ -7,7 +7,7 @@ namespace /*detail*/ {
 	[[maybe_unused]] int peek(std::istream& is) { return is.peek(); }
 	[[maybe_unused]] int get (std::istream& is) {
 		static bool eofReached = false;
-		if (eofReached) { printError("syntax error at EOF"); }
+		if (eofReached) { PrintError("syntax error at EOF\n"); }
 
 		int c = is.get();
 		if (c == '\n') { row++, col=1; } else { col++; }
@@ -61,13 +61,13 @@ auto preprocess(std::istream& is) {
 		}
 		else if (state == Char1) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tChar1\n");
-			if (c == '\'') { printError("empty char literal"); }
+			if (c == '\'') { PrintError("empty char literal\n"); }
 			line.characters.push_back(parseChar(c,is));
 			state = Char2;
 		}
 		else if (state == Char2) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tChar2\n");
-			if (c != '\'') { printError("multi-char literal"); }
+			if (c != '\'') { PrintError("multi-char literal\n"); }
 				line.text += '\'';
 			state = Code;
 		}
@@ -79,20 +79,23 @@ auto preprocess(std::istream& is) {
 	result.push_back(line);
 
 	if (state != Accept
-	&&  state != Code  ) { printError("syntax error at EOF"); }
+	&&  state != Code
+	&&  state != Comment)
+		PrintError("syntax error at EOF\n");
+	
 	return result;
 }
 
 namespace /*detail*/ {
 	char parseChar(char c, std::istream& is) {
-		if (c == '\n') { printError("multi-line string"); }
+		if (c == '\n') { PrintError("multi-line string\n"); }
 		if (c != '\\') { return c; }
 		c = get(is);
 		if (c == 'x') {
 			char h1 = get(is);
 			char h2 = get(is);
 			if (!isHexDigit(h1) || !isHexDigit(h2))
-				printError("invalid hex digit");
+				PrintError("invalid hex digit\n");
 			return hexDigit(h1) << 4 | hexDigit(h2);
 		}
 		/**/ if (c=='0' ) { return '\0'; }
@@ -107,6 +110,6 @@ namespace /*detail*/ {
 		else if (c=='\\') { return '\\'; }
 		else if (c=='\'') { return '\''; }
 		else if (c=='"' ) { return '"' ; }
-		printError("unknown esc char"); return {};
+		PrintError("unknown esc char\n"); return {};
 	}
 }
