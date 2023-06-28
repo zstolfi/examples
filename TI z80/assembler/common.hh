@@ -1,10 +1,17 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // #define DEBUG(msg) do {} while(0)
 #define DEBUG(msg)    do {std::cout << msg; } while(0)
+
+// struct Scope {
+// 	Sope* parent;
+// 	bool isInside(Scope); // TODO
+// }
+Scope* rootScope = nullptr;
 
 struct Line {
 	std::size_t row, col;
@@ -12,8 +19,11 @@ struct Line {
 
 	std::vector<std::vector<char>> strings;
 	std::vector<char> characters;
-
+//	Scope scope;
 };
+
+using Token = std::string_view;
+using TokenList = std::vector<Token>;
 
 
 
@@ -40,8 +50,18 @@ using CharIsNumber = bool(char);
 bool isDigit   (char c) { return digit(c)    != Invalid_Digit; }
 bool isHexDigit(char c) { return hexDigit(c) != Invalid_Digit; }
 bool isBinDigit(char c) { return binDigit(c) != Invalid_Digit; }
+bool isAnyDigit(char c) { return isHexDigit(c); }
 
+
+
+using CharPredicate = bool(char);
 bool isWhitespace(char c) { return c==' ' || c=='\t' || c=='\n'; }
+bool isLower(char c) { return 'a' <= c&&c <= 'z'; }
+bool isUpper(char c) { return 'A' <= c&&c <= 'Z'; }
+
+using CharTransformation = char(char);
+char toLower(char c) { return isUpper(c) ? c + ('a'-'A') : c; }
+char toUpper(char c) { return isLower(c) ? c + ('A'-'a') : c; }
 
 
 

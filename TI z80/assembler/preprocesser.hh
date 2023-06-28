@@ -5,7 +5,7 @@
 namespace /*detail*/ {
 	std::size_t  row = 1,  col = 1;
 	[[maybe_unused]] int peek(std::istream& is) { return is.peek(); }
-	[[maybe_unused]] int get( std::istream& is) {
+	[[maybe_unused]] int get (std::istream& is) {
 		static bool eofReached = false;
 		if (eofReached) { printError("syntax error at EOF"); }
 
@@ -20,6 +20,8 @@ namespace /*detail*/ {
 
 // TODO: #define
 // TODO: #definefn
+// TODO: #undef
+// TODO: #redef
 // TODO: #include
 // TODO: #incbin (include binary)
 auto preprocess(std::istream& is) {
@@ -41,12 +43,13 @@ auto preprocess(std::istream& is) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tCode\n");
 			switch (c) {
 			case '"' : state = String;
-				curString = {};         continue;
-			case '\'': state = Char1;   continue;
-			case ';' : state = Comment; continue;
+			    curString = {};          continue;
+			case '\'': state = Char1;    continue;
+			case ';' : state = Comment;  continue;
 			case '\n':
-			case '\\': state = Accept;  continue;
-			default: line.text += c;    continue;
+			case '\\': state = Accept;   continue;
+			default:
+			    line.text += toLower(c); continue;
 		} }
 		else if (state == String) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tString\n");

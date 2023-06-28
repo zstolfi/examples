@@ -66,13 +66,15 @@ int main(int argc, char* argv[]) {
 	/* reduce */
 	// as I test, I'm assuming EVERY line is a integer expression
 	std::cout << "~~~ START ~~~\n";
-	reduce(lines); // parse expressions and substitute addresses
-	for (Line l : lines)
-		output << l.text << "\n";
+	std::vector<TokenList> asmLines = reduce(lines); // lex, parse expressions, and substitute addresses
+	for (TokenList l : asmLines) {
+		for (Token t : l) { output << t << " "; }
+		output << "\n";
+	}
 	std::cout << "~~~ FINISH ~~~\n";
 	return 0;
 	/* assemble */
-	std::vector<std::byte> byteCode = assemble(lines); // look up op-codes
+	std::vector<std::byte> byteCode = assemble(asmLines); // look up op-codes
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)
 	output << Bytes<11>("**TI83F*\x1A\x0A");

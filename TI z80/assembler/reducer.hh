@@ -1,15 +1,16 @@
 #pragma once
 #include "common.hh"
-#include <string>
 #include <algorithm>
 #include <ranges>
 namespace ranges = std::ranges;
+using namesace std::literals;
 
 namespace /*detail*/ {
 	using integer = unsigned long;
 
-	//integer parseExpression(const std::string&);
-	integer parseInteger   (const std::string&);
+	integer parseExpression(std::string_view);
+	integer parseInteger   (std::string_view);
+	bool       isInteger   (std::string_view);
 }
 
 // assembler directives:
@@ -20,36 +21,54 @@ namespace /*detail*/ {
 //     .equ  =       (const assignment)
 //     .end          (stop parsing)
 
-auto& reduce(std::vector<Line>& lines) {
-	// pass 0: remove empty lines
+auto reduce(std::vector<Line>& lines) {
+	std::vector<TokenList> result {};
+
+	// pass 0: remove empty lines, and lex
 	for (auto it=lines.begin(); it!=lines.end(); /**/) {
-		bool empty = !ranges::any_of(it->text,
-			[](char c) { return !isWhitespace(c); }
-		);
-		if (empty) {
-			it = lines.erase(it);
-		} else { ++it; }
+		if (ranges::all_of(it->text, isWhitespace)) {
+			it = lines.erase(it); // remove line if it's just whitespace
+		} else {
+			auto str = std::string_view(it->text);
+			while (isWhitespace(str.front())) { str.remove_prefix(1); }
+			while (isWhitespace(str.back ())) { str.remove_suffix(1); }
+			*it = str; // reassign line with trimmed version of itself
+			++it;
+		}
 	}
 
-	// pass 1: evaluate all addresses
-	std::size_t programCounter = 0;
+	// pass 1: evaluate all label addresses and put them into context
+	Context ctx;
+	/* ... */
 
+	// pass 2: reduce all expressions into standard form
 	for (Line& l : lines) {
-		l.text = std::to_string(parseInteger(l.text));
+		l.text = std::to_string(parseExpression(l.text));
 	}
 
-	return lines;
+	return result;
 }
 
 namespace /*detail*/ {
-	integer parseInteger(const std::string& str) {
+
+	integer parseExpression(std::string_view str) {
+
+	}
+
+	bool isInteger(std::string_view str) {
+		if (str.empty()) { return false; }
+		if ("#$%"sv.contains(str.front())) { str.remove_prefix(1); }
+		if ("dhb"sv.contains(str.back ())) { str.remove_suffix(1); }
+		return str.size() && std::all_of(str, isAnyDigit);
+	}
+
+	integer parseInteger(std::string_view str) {
 		integer result = 0;
 
 		// Octal will not supported, because evil
 		// number systems are not to be tolerated
 		enum Radix { Dec=10, Hex=16, Bin=2 };
 		Radix base = Dec;
-		bool positive = true;
 
 		int suffix = false;
 		switch (str.back()) {
@@ -60,8 +79,6 @@ namespace /*detail*/ {
 
 		int i=0;
 		char c = str[i];
-		if (c=='+') { /* * * * * * * */ c=str[++i]; }
-		if (c=='-') { positive = false; c=str[++i]; }
 
 		int prefix = false;
 		/**/ if (c=='#') { prefix = Dec; c=str[++i]; }
@@ -83,8 +100,6 @@ namespace /*detail*/ {
 
 		while (digitB(c=str[i++]) != Invalid_Digit)
 			result = base*result + digitB(c);
-
-		if (!positive) { result = ~result + 1; }
 
 		return result;
 	}
