@@ -65,17 +65,11 @@ int main(int argc, char* argv[]) {
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings/chars
 	
 	/* lex */
-	PrintStatus("~~~ START ~~~\n");
-	std::vector<TokenList> asmLines = lexAll(lines); // transform each line as a token list
-	for (TokenList l : asmLines) {
-		for (Token t : l) { output << (int)t.type << ":" << t.value << " "; }
-		output << "\n";
-	}
-	PrintStatus("~~~ FINISH ~~~\n");
-	return 0;
+	std::vector<TokenArray> asmLines = lex(lines); // transform each line as a token list
 
 	/* assemble */
 	std::vector<std::byte> byteCode = parse(asmLines); // evaluate variables, and look up op-codes
+	return 0;
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)
 	output << Bytes<11>("**TI83F*\x1A\x0A");

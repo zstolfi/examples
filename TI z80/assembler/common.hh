@@ -3,12 +3,15 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <list>
 #include <algorithm>
+#include <variant>
 #include <ranges>
 namespace ranges = std::ranges;
 
-#define DEBUG(msg) do {} while(0)
-// #define DEBUG(msg)    do {std::cout << msg; } while(0)
+using integer = unsigned long;
+
+
 
 // struct Scope {
 // 	Sope* parent;
@@ -20,15 +23,15 @@ struct Line {
 	std::size_t row, col;
 	std::string text;
 
-	std::vector<std::vector<char>> strings;
-	std::vector<char> characters;
+	std::list<std::vector<char>> strings;
+	std::list<char> characters;
 //	Scope scope;
 };
 
 enum struct TokenType {
-	   Integer, Identifier, Directive,
-	// $
-	   ProgCounter,
+	   Identifier, Directive, Integer, String,
+	// $            ,      :
+	   ProgCounter, Comma, LabelDef,
 	// =       (       )
 	   Assign, Paren0, Paren1,
 	// **   *     /    %    +     -
@@ -42,8 +45,16 @@ enum struct TokenType {
 	// <<       >>
 	   BitLeft, BitRight,
 };
-struct Token { TokenType type; std::string_view value; };
-using TokenList = std::vector<Token>;
+
+struct Token {
+	TokenType type;
+	std::variant<
+		std::string_view,
+		integer
+	> value;
+};
+
+using TokenArray = std::vector<Token>;
 
 
 
@@ -85,6 +96,9 @@ char toLower(char c) { return isUpper(c) ? c + ('a'-'A') : c; }
 char toUpper(char c) { return isLower(c) ? c + ('A'-'a') : c; }
 
 
+
+#define DEBUG(msg) do {} while(0)
+// #define DEBUG(msg)    do {std::cout << msg; } while(0)
 
 #define  PrintStatus(msg) do { std::cerr /*           */ << msg;          } while(0)
 #define PrintWarning(msg) do { std::cerr << "Warning:\t" << msg;          } while(0)
