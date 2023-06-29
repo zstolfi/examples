@@ -35,7 +35,7 @@ namespace /*detail*/ {
 	integer parseExpression(std::span<Token> tokens) {
 		Token t = tokens[0];
 		if (t.type == TokenType::Integer)
-			return std::get<integer>(t.value);
-		return {};
+			return t.intValue;
+		return -1;
 	}
 }

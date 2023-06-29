@@ -31,7 +31,7 @@ TokenArray lexLine(Line& line) {
 			integer intVal = parseInteger(sub(i,size)); // parse integers at lex time
 			result.emplace_back(TokenType::Integer, intVal);
 			continue;
-		}
+		} size = 1;
 		// directive
 		if (str[i] == '.') {
 			while (isLetter(str[i+size]))
@@ -44,11 +44,13 @@ TokenArray lexLine(Line& line) {
 					result.emplace_back(TokenType::Directive, dir);
 					continue;
 			} }
+			size = 1;
 		}
 		// string literal
 		if (str[i] == '\"') {
-			auto& stringVal = line.strings.front();
-			result.emplace_back(TokenType::String, std::string_view{stringVal});
+			auto& vec = line.strings.front();
+			auto stringVal = std::string{vec.begin(), vec.end()};
+			result.emplace_back(TokenType::String, stringVal);
 			line.strings.pop_front(); continue;
 		}
 		// character literal

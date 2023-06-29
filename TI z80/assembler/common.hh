@@ -5,7 +5,6 @@
 #include <vector>
 #include <list>
 #include <algorithm>
-#include <variant>
 #include <ranges>
 namespace ranges = std::ranges;
 
@@ -48,10 +47,12 @@ enum struct TokenType {
 
 struct Token {
 	TokenType type;
-	std::variant<
-		std::string_view,
-		integer
-	> value;
+	std::string strValue;
+	integer intValue;
+	Token(TokenType t) : type(t) {}
+	Token(TokenType t, integer          val) : type(t), intValue(val) {}
+	Token(TokenType t, std::string      val) : type(t), strValue(val) {}
+	Token(TokenType t, std::string_view val) : type(t), strValue(val) {}
 };
 
 using TokenArray = std::vector<Token>;

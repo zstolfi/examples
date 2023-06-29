@@ -63,9 +63,23 @@ int main(int argc, char* argv[]) {
 
 	/* preprocess */
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings/chars
-	
+
 	/* lex */
 	std::vector<TokenArray> asmLines = lex(lines); // transform each line as a token list
+	for (TokenArray& l : asmLines) {
+		for (Token t : l) {
+			if (t.type == TokenType::Integer)
+				output << (int)t.type << ":" << t.intValue << " ";
+			else if (t.type == TokenType::String
+			     ||  t.type == TokenType::Identifier
+			     ||  t.type == TokenType::Directive)
+				output << (int)t.type << ":" << t.strValue << " ";
+			else
+				output << (int)t.type << ": ";
+		}
+		output << "\n";
+	}
+	return 0;
 
 	/* assemble */
 	std::vector<std::byte> byteCode = parse(asmLines); // evaluate variables, and look up op-codes
