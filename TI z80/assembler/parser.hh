@@ -5,12 +5,11 @@
 #include <optional>
 #include <tuple>
 #include <array>
+#include <stack>
 
 namespace /*detail*/ {
-	integer parseExpression(std::size_t& i, std::span<Token>);
-	integer parseAddSub    (std::size_t& i, std::span<Token>);
-	integer parseMult      (std::size_t& i, std::span<Token>);
-	integer parsePrimary   (std::size_t& i, std::span<Token>);
+	integer parseExpression(const std::span<Token>);
+	std::vector<std::size_t> makeGroups(const std::span<Token>);
 }
 
 // assembler directives:
@@ -30,10 +29,10 @@ auto parse(std::vector<TokenArray>& lines) {
 
 	// pass 2: execute all statements (each is just an expression for now)
 	for (TokenArray& line : lines) {
-		std::size_t i=0;
-		integer result = parseExpression(i,line);
-		if (i != line.size()) { std::cout << "!" << i << " "; }
-		std::cout << result << "\n";
+		// std::cout << parseExpression(line) << "\n";
+		parseExpression(line); std::cout << "\n";
+		// if (auto result = parseExpression(line))
+		// 	std::cout << *result << "\n";
 	}
 
 	return result;
@@ -48,42 +47,85 @@ namespace /*detail*/ {
 		integer Mult(integer a, integer b) { return a * b; }
 
 		constexpr std::tuple Order {
-			std::pair{BinaryLeft , std::array{Add, Sub}},
 			std::pair{BinaryLeft , std::array{Mult}},
+			std::pair{BinaryLeft , std::array{Add, Sub}},
 		};
 	}
 
-	integer parseExpression(/*Context& ctx, */std::size_t& i, std::span<Token> tokens) {
-		return parseAddSub(i,tokens);
+	integer parseExpression(/*Context& ctx, */const std::span<Token> tokens) {
+		// group expressions together
+		auto groups = makeGroups(tokens), newGroups = groups;
+		std::vector<integer> evaluated (tokens.size());
+		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
+			next = groups[i];
+			if (tokens[i].type == TokenType::Integer)
+				evaluated[i] = tokens[i].intValue;
+		}
+
+		// parentheses first
+		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
+			next = groups[i];
+			if (next-i > 0) {
+				std::span<Token> inParens = tokens.subspan(i+1, next-i-1);
+				integer parenValue = parseExpression(inParens);
+				evaluated[i   ] = parenValue;
+				evaluated[next] = parenValue;
+			}
+		}
+		// multiply
+		newGroups = groups;
+		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
+			next = groups[i];
+			if (tokens[i].type == TokenType::Mult
+			&&  0 < i&&i < groups.size()-1) {
+				std::size_t begin = groups[i-1];
+				std::size_t end   = groups[i+1];
+				integer result = OP::Mult(evaluated[begin], evaluated[end]);
+				evaluated[begin] = result;
+				evaluated[end]   = result;
+				newGroups[begin] = end;
+				newGroups[end] = begin;
+			}
+		}
+		groups = newGroups;
+		// add/subtrack
+		newGroups = groups;
+		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
+			next = groups[i];
+			if ((tokens[i].type == TokenType::Plus
+			||   tokens[i].type == TokenType::Minus)
+			&&  0 < i&&i < groups.size()-1) {
+				std::size_t begin = groups[i-1];
+				std::size_t end   = groups[i+1];
+				integer x = evaluated[begin];
+				integer y = evaluated[end];
+				integer result = 0;
+				if (tokens[i].type == TokenType::Plus ) { result = OP::Add(x,y); }
+				if (tokens[i].type == TokenType::Minus) { result = OP::Sub(x,y); }
+				evaluated[begin] = result;
+				evaluated[end]   = result;
+				newGroups[begin] = end;
+				newGroups[end] = begin;
+			}
+		}
+		groups = newGroups;
+
+		for (integer n : evaluated) { std::cout << n << " "; }
+		std::cout << "| ";
+		return evaluated[0];
 	}
 
-	integer parseAddSub(std::size_t& i, std::span<Token> tokens) {
-		integer result = parseMult(i,tokens);
-		while (tokens[i].type == TokenType::Plus
-		||     tokens[i].type == TokenType::Minus) {
-			TokenType oper = tokens[i++].type;
-			integer expr = parseMult(i,tokens);
-			if (oper == TokenType::Plus ) { result += expr; }
-			if (oper == TokenType::Minus) { result -= expr; }
-		}
+	std::vector<std::size_t> makeGroups(const std::span<Token> tokens) {
+		std::vector<std::size_t> result (tokens.size());
+		std::stack<std::size_t> parenStack;
+		for (std::size_t i=0; i<tokens.size(); i++) {
+			switch (tokens[i].type) {
+				case TokenType::Paren0 : parenStack.push(i); break;
+				case TokenType::Paren1 : result[parenStack.top()] = i;
+				/*                    */ result[i] = parenStack.top();
+				/*                    */ parenStack.pop(); break;
+				default: result[i] = i; break;
+		} }
 		return result;
-	}
-	integer parseMult(std::size_t& i, std::span<Token> tokens) {
-		integer result = parsePrimary(i,tokens);
-		while (tokens[i].type == TokenType::Mult) {
-			TokenType oper = tokens[i++].type;
-			integer expr = parsePrimary(i,tokens);
-			if (oper == TokenType::Mult ) { result *= expr; }
-		}
-		return result;
-	}
-	integer parsePrimary(std::size_t& i, std::span<Token> tokens) {
-		if (tokens[i].type == TokenType::Integer) { return tokens[i++].intValue; }
-		if (tokens[i].type == TokenType::Paren0) { i++;
-			integer result = parseExpression(i,tokens);
-			if (tokens[i++].type != TokenType::Paren1) { /*Error*/ }
-			return result;
-		}
-		/*Error*/ return {};
 	}
 }

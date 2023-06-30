@@ -48,7 +48,7 @@ enum struct TokenType {
 struct Token {
 	TokenType type;
 	std::string strValue;
-	integer intValue;
+	integer intValue = 0;
 	Token(TokenType t) : type(t) {}
 	Token(TokenType t, integer          val) : type(t), intValue(val) {}
 	Token(TokenType t, std::string      val) : type(t), strValue(val) {}

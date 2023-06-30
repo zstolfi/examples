@@ -122,7 +122,7 @@ namespace /*detail*/ {
 		||  (prefix=='%' && (suffix=='d' || suffix=='h')))
 			PrintError("mismatched base prefix/suffix in integer\n");
 
-		if ("dhb"sv.contains(suffix) && (prefix=='#' || prefix=='%'))
+		if ("dhb"sv.contains(suffix) && prefix != '$')
 			str.remove_suffix(1);
 
 		return str.size() && ranges::all_of(str, isAnyDigit);
