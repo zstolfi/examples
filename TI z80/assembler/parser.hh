@@ -8,8 +8,13 @@
 #include <stack>
 
 namespace /*detail*/ {
+	using Group = std::vector<std::size_t>;
+	// Describes "grouping" of tokens
+	// i.e. 1 * ( 4 + 2 )
+	// =>   0 1 6 3 4 5 2
+
 	integer parseExpression(const std::span<Token>);
-	std::vector<std::size_t> makeGroups(const std::span<Token>);
+	Group   makeGroups     (const std::span<Token>);
 }
 
 // assembler directives:
@@ -64,9 +69,11 @@ namespace /*detail*/ {
 		};
 	}
 
+
+
 	integer parseExpression(/*Context& ctx, */const std::span<Token> tokens) {
 		// group expressions together
-		auto groups = makeGroups(tokens), newGroups = groups;
+		Group groups = makeGroups(tokens), newGroups = groups;
 		std::vector<integer> evaluated (tokens.size());
 		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
 			next = groups[i];
@@ -84,51 +91,39 @@ namespace /*detail*/ {
 				evaluated[next] = parenValue;
 			}
 		}
+
+		auto applyBinaryLeft = [&](const auto& ops) {
+			Group newGroups = groups;
+			for (std::size_t i=0, next; i<groups.size(); i = next+1) {
+				next = groups[i];
+				if (!(0 < i&&i < groups.size()-1)) { continue; }
+				
+				auto isCurrent = [&](auto op) { return op.token == tokens[i].type; };
+				if (auto op = ranges::find_if(ops, isCurrent); op != ops.end()) {
+					std::size_t begin = groups[i-1];
+					std::size_t end   = groups[i+1];
+					integer result = (*op)(evaluated[begin], evaluated[end]);
+					evaluated[begin] = result;
+					evaluated[end]   = result;
+					newGroups[begin] = end;
+					newGroups[end] = begin;
+				}
+			}
+			groups = newGroups;
+		};
+
 		// multiply
-		newGroups = groups;
-		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
-			next = groups[i];
-			if (tokens[i].type == std::get<0>(OP::Order).second[0].token
-			&&  0 < i&&i < groups.size()-1) {
-				std::size_t begin = groups[i-1];
-				std::size_t end   = groups[i+1];
-				integer result = OP::Mult(evaluated[begin], evaluated[end]);
-				evaluated[begin] = result;
-				evaluated[end]   = result;
-				newGroups[begin] = end;
-				newGroups[end] = begin;
-			}
-		}
-		groups = newGroups;
+		applyBinaryLeft(std::get<0>(OP::Order).second);
 		// add/subtract
-		newGroups = groups;
-		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
-			next = groups[i];
-			if ((tokens[i].type == std::get<1>(OP::Order).second[0].token
-			||   tokens[i].type == std::get<1>(OP::Order).second[1].token)
-			&&  0 < i&&i < groups.size()-1) {
-				std::size_t begin = groups[i-1];
-				std::size_t end   = groups[i+1];
-				integer x = evaluated[begin];
-				integer y = evaluated[end];
-				integer result = 0;
-				if (tokens[i].type == TokenType::Plus ) { result = OP::Add(x,y); }
-				if (tokens[i].type == TokenType::Minus) { result = OP::Sub(x,y); }
-				evaluated[begin] = result;
-				evaluated[end]   = result;
-				newGroups[begin] = end;
-				newGroups[end] = begin;
-			}
-		}
-		groups = newGroups;
+		applyBinaryLeft(std::get<1>(OP::Order).second);
 
 		for (integer n : evaluated) { std::cout << n << " "; }
 		std::cout << "| ";
 		return evaluated[0];
 	}
 
-	std::vector<std::size_t> makeGroups(const std::span<Token> tokens) {
-		std::vector<std::size_t> result (tokens.size());
+	Group makeGroups(const std::span<Token> tokens) {
+		Group result (tokens.size());
 		std::stack<std::size_t> parenStack;
 		for (std::size_t i=0; i<tokens.size(); i++) {
 			switch (tokens[i].type) {
