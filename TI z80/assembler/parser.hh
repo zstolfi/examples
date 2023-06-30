@@ -41,10 +41,22 @@ auto parse(std::vector<TokenArray>& lines) {
 namespace /*detail*/ {
 	namespace OP {
 		enum Type { UnaryLeft, UnaryRight, BinaryLeft, BinaryRight };
+		struct UnaryOpInfo {
+			TokenType token;
+			integer(*fn)(integer);
+			integer operator()(integer x) const { return fn(x); }
+		};
 
-		integer Add (integer a, integer b) { return a + b; }
-		integer Sub (integer a, integer b) { return a - b; }
-		integer Mult(integer a, integer b) { return a * b; }
+		struct BinaryOpInfo {
+			TokenType token;
+			integer(*fn)(integer, integer);
+			integer operator()(integer x, integer y) const { return fn(x,y); }
+		};
+
+		constexpr BinaryOpInfo
+			Add  {TokenType::Plus , [](auto a, auto b) { return a + b; }},
+			Sub  {TokenType::Minus, [](auto a, auto b) { return a - b; }},
+			Mult {TokenType::Mult , [](auto a, auto b) { return a * b; }};
 
 		constexpr std::tuple Order {
 			std::pair{BinaryLeft , std::array{Mult}},
@@ -76,7 +88,7 @@ namespace /*detail*/ {
 		newGroups = groups;
 		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
 			next = groups[i];
-			if (tokens[i].type == TokenType::Mult
+			if (tokens[i].type == std::get<0>(OP::Order).second[0].token
 			&&  0 < i&&i < groups.size()-1) {
 				std::size_t begin = groups[i-1];
 				std::size_t end   = groups[i+1];
@@ -88,12 +100,12 @@ namespace /*detail*/ {
 			}
 		}
 		groups = newGroups;
-		// add/subtrack
+		// add/subtract
 		newGroups = groups;
 		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
 			next = groups[i];
-			if ((tokens[i].type == TokenType::Plus
-			||   tokens[i].type == TokenType::Minus)
+			if ((tokens[i].type == std::get<1>(OP::Order).second[0].token
+			||   tokens[i].type == std::get<1>(OP::Order).second[1].token)
 			&&  0 < i&&i < groups.size()-1) {
 				std::size_t begin = groups[i-1];
 				std::size_t end   = groups[i+1];
