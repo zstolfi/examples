@@ -8,13 +8,50 @@
 #include <stack>
 
 namespace /*detail*/ {
-	using Group = std::vector<std::size_t>;
-	// Describes "grouping" of tokens
-	// i.e. 1 * ( 4 + 2 )
-	// =>   0 1 6 3 4 5 2
+	namespace OP {
+		enum Type { UnaryLeft, UnaryRight, BinaryLeft, BinaryRight };
+		struct UnaryOpInfo {
+			TokenType token;
+			integer(*fn)(integer);
+			integer operator()(integer x) const { return fn(x); }
+		};
 
-	integer parseExpression(const std::span<Token>);
-	Group   makeGroups     (const std::span<Token>);
+		struct BinaryOpInfo {
+			TokenType token;
+			integer(*fn)(integer, integer);
+			integer operator()(integer x, integer y) const { return fn(x,y); }
+		};
+
+		constexpr BinaryOpInfo
+			Add  {TokenType::Plus , [](auto a, auto b) { return a + b; }},
+			Sub  {TokenType::Minus, [](auto a, auto b) { return a - b; }},
+			Mult {TokenType::Mult , [](auto a, auto b) { return a * b; }};
+
+		constexpr std::tuple Order {
+			std::pair{BinaryLeft , std::array{Mult}},
+			std::pair{BinaryLeft , std::array{Add, Sub}},
+		};
+	}
+
+
+	integer parseExpression(std::span<Token>);
+
+	// You know when you use PEMDAS to simplify
+	// a math equation, and you show your work?
+	// This class is that work.
+	struct ExpressionContext {
+		std::span<Token> tokens;
+		using Grouping = std::vector<std::size_t>;
+		// Describes "grouping" of tokens
+		// i.e. 1 * ( 4 + 2 )
+		// =>   0 1 6 3 4 5 2
+		Grouping groups;
+		std::vector<integer> evaluated;
+		ExpressionContext(std::span<Token>);
+	};
+
+	template <OP::Type OpT, typename Fn, std::size_t N>
+	void applyOperations(ExpressionContext&, std::array<Fn,N>);
 }
 
 // assembler directives:
@@ -44,95 +81,64 @@ auto parse(std::vector<TokenArray>& lines) {
 }
 
 namespace /*detail*/ {
-	namespace OP {
-		enum Type { UnaryLeft, UnaryRight, BinaryLeft, BinaryRight };
-		struct UnaryOpInfo {
-			TokenType token;
-			integer(*fn)(integer);
-			integer operator()(integer x) const { return fn(x); }
-		};
-
-		struct BinaryOpInfo {
-			TokenType token;
-			integer(*fn)(integer, integer);
-			integer operator()(integer x, integer y) const { return fn(x,y); }
-		};
-
-		constexpr BinaryOpInfo
-			Add  {TokenType::Plus , [](auto a, auto b) { return a + b; }},
-			Sub  {TokenType::Minus, [](auto a, auto b) { return a - b; }},
-			Mult {TokenType::Mult , [](auto a, auto b) { return a * b; }};
-
-		constexpr std::tuple Order {
-			std::pair{BinaryLeft , std::array{Mult}},
-			std::pair{BinaryLeft , std::array{Add, Sub}},
-		};
-	}
-
-
-
-	integer parseExpression(/*Context& ctx, */const std::span<Token> tokens) {
-		// group expressions together
-		Group groups = makeGroups(tokens), newGroups = groups;
-		std::vector<integer> evaluated (tokens.size());
-		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
-			next = groups[i];
-			if (tokens[i].type == TokenType::Integer)
-				evaluated[i] = tokens[i].intValue;
-		}
+	integer parseExpression(/*Context& ctx, */std::span<Token> tokens) {
+		auto ctx = ExpressionContext(tokens);
 
 		// parentheses first
-		for (std::size_t i=0, next; i<groups.size(); i = next+1) {
-			next = groups[i];
+		for (std::size_t i=0, next; i<ctx.groups.size(); i = next+1) {
+			next = ctx.groups[i];
 			if (next-i > 0) {
 				std::span<Token> inParens = tokens.subspan(i+1, next-i-1);
 				integer parenValue = parseExpression(inParens);
-				evaluated[i   ] = parenValue;
-				evaluated[next] = parenValue;
+				ctx.evaluated[i]    = parenValue;
+				ctx.evaluated[next] = parenValue;
 			}
 		}
 
-		auto applyBinaryLeft = [&](const auto& ops) {
-			Group newGroups = groups;
-			for (std::size_t i=0, next; i<groups.size(); i = next+1) {
-				next = groups[i];
-				if (!(0 < i&&i < groups.size()-1)) { continue; }
-				
-				auto isCurrent = [&](auto op) { return op.token == tokens[i].type; };
-				if (auto op = ranges::find_if(ops, isCurrent); op != ops.end()) {
-					std::size_t begin = groups[i-1];
-					std::size_t end   = groups[i+1];
-					integer result = (*op)(evaluated[begin], evaluated[end]);
-					evaluated[begin] = result;
-					evaluated[end]   = result;
-					newGroups[begin] = end;
-					newGroups[end] = begin;
-				}
-			}
-			groups = newGroups;
-		};
-
 		// multiply
-		applyBinaryLeft(std::get<0>(OP::Order).second);
+		applyOperations<OP::BinaryLeft>(ctx, std::get<0>(OP::Order).second);
 		// add/subtract
-		applyBinaryLeft(std::get<1>(OP::Order).second);
+		applyOperations<OP::BinaryLeft>(ctx, std::get<1>(OP::Order).second);
 
-		for (integer n : evaluated) { std::cout << n << " "; }
+		for (integer n : ctx.evaluated) { std::cout << n << " "; }
 		std::cout << "| ";
-		return evaluated[0];
+		return ctx.evaluated[0];
 	}
 
-	Group makeGroups(const std::span<Token> tokens) {
-		Group result (tokens.size());
+	ExpressionContext::ExpressionContext(std::span<Token> tokens)
+	: tokens   (tokens)
+	, groups   (tokens.size())
+	, evaluated(tokens.size()) {
 		std::stack<std::size_t> parenStack;
 		for (std::size_t i=0; i<tokens.size(); i++) {
 			switch (tokens[i].type) {
 				case TokenType::Paren0 : parenStack.push(i); break;
-				case TokenType::Paren1 : result[parenStack.top()] = i;
-				/*                    */ result[i] = parenStack.top();
+				case TokenType::Paren1 : groups[parenStack.top()] = i;
+				/*                    */ groups[i] = parenStack.top();
 				/*                    */ parenStack.pop(); break;
-				default: result[i] = i; break;
+				case TokenType::Integer: evaluated[i] = tokens[i].intValue;
+				default: groups[i] = i; break;
 		} }
-		return result;
 	}
+
+	template <OP::Type OpT, typename Fn, std::size_t N>
+	void applyOperations(ExpressionContext& ctx, std::array<Fn,N> ops) {
+		auto newGroups = ctx.groups;
+		for (std::size_t i=0, next; i<ctx.groups.size(); i = next+1) {
+			next = ctx.groups[i];
+			if (!(0 < i&&i < ctx.groups.size()-1)) { continue; }
+
+			auto isCurrent = [&](auto op) { return op.token == ctx.tokens[i].type; };
+			if (auto op = ranges::find_if(ops,isCurrent); op != ops.end()) {
+				std::size_t begin = ctx.groups[i-1];
+				std::size_t end   = ctx.groups[i+1];
+				integer result = (*op)(ctx.evaluated[begin], ctx.evaluated[end]);
+				ctx.evaluated[begin] = result;
+				ctx.evaluated[end]   = result;
+				newGroups[begin] = end;
+				newGroups[end] = begin;
+			}
+		}
+		ctx.groups = newGroups;
+	};
 }
