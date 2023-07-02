@@ -76,7 +76,9 @@ namespace /*detail*/ {
 		auto expr = ExpressionContext(tokens);
 
 		// parentheses first
-		iterateGroups(expr.groups, [&](auto i0, auto i1) {
+		iterateGroups(expr.groups, [&](auto i) {
+			auto i0=i, i1=expr.groups[i];
+			// if (i0 > i1) { std::swap(i0,i1); }
 			if (i0 < i1) {
 				std::span<Token> inParens = tokens.subspan(i0+1, i1-i0-1);
 				integer parenValue = parseExpression(inParens);
@@ -103,6 +105,8 @@ namespace /*detail*/ {
 
 	template <OP::Assoc Dir, typename Fn, std::size_t N>
 	void applyOperations(ExpressionContext& ctx, std::array<Fn,N> ops) {
+		auto newGroups = ctx.groups;
+		
 		auto matchOp = [&ops](auto token) -> std::optional<Fn> {
 			auto result = ranges::find_if(ops,
 				[&](auto op) { return op.token == token.type; }
@@ -111,15 +115,18 @@ namespace /*detail*/ {
 			return {};
 		};
 
-		const std::size_t size = ctx.tokens.size();
-		auto newGroups = ctx.groups;
-		if constexpr (std::is_same_v<Fn, OP::UnaryOpInfo>) {
-			iterateGroups<Dir>(ctx.groups, [&](auto i, auto) {
-				auto op = matchOp(ctx.tokens[i]); if (!op) { return; }
+		auto neighbors = [&g=newGroups](auto i) {
+			std::optional<std::size_t> prev, next;
+			if (i   > 0       ) { prev = g[i-1]; }
+			if (i+1 < g.size()) { next = g[i+1]; }
+			return std::pair {prev,next};
+		};
 
-				std::optional<std::size_t> prev, next;
-				if (i   > 0   ) { prev = newGroups[i-1]; }
-				if (i+1 < size) { next = newGroups[i+1]; }
+		if constexpr (std::is_same_v<Fn, OP::UnaryOpInfo>) {
+			iterateGroups<Dir>(ctx.groups, [&](auto i) {
+				auto op = matchOp(ctx.tokens[i]); if (!op) { return; }
+				auto [prev,next] = neighbors(i);
+
 				auto& expr = Dir==OP::Left ? prev : next;
 				auto& adj  = Dir==OP::Left ? next : prev;
 				// Break if there's no expr to apply to
@@ -132,14 +139,12 @@ namespace /*detail*/ {
 				ctx.evaluated[i]     = result;
 				newGroups[*expr] = i;
 				newGroups[i] = *expr;
-			});
+			} );
 		} else if constexpr (std::is_same_v<Fn, OP::BinaryOpInfo>) {
-			iterateGroups<Dir>(ctx.groups, [&](auto i, auto) {
+			iterateGroups<Dir>(ctx.groups, [&](auto i) {
 				auto op = matchOp(ctx.tokens[i]); if (!op) { return; }
-
-				std::optional<std::size_t> prev, next;
-				if (i   > 0   ) { prev = newGroups[i-1]; }
-				if (i+1 < size) { next = newGroups[i+1]; }
+				auto [prev,next] = neighbors(i);
+				// Break if either operands aren't expressions
 				if (prev && !holdsIntValue(ctx.tokens[*prev].type)) { return; }
 				if (next && !holdsIntValue(ctx.tokens[*next].type)) { return; }
 
@@ -148,7 +153,7 @@ namespace /*detail*/ {
 				ctx.evaluated[*next]   = result;
 				newGroups[*prev] = *next;
 				newGroups[*next] = *prev;
-			});
+			} );
 		}
 		ctx.groups = newGroups;
 	};
@@ -173,19 +178,20 @@ namespace /*detail*/ {
 
 	template <OP::Assoc Dir, typename Fn>
 	void iterateGroups(const Grouping& groups, Fn f) {
-		if constexpr (Dir == OP::Left) {
-			for (std::size_t i=0, next; i<groups.size(); i = next+1)
-				next = groups[i], f(i,next);
-		}
-		else if constexpr (Dir == OP::Right) {
-			auto i = std::ssize(groups); i--;
-			for (std::size_t prev; i>=0; i = prev-1)
-				prev = groups[i], f(prev,i);
+		// Because indices are not permitted to be negative,
+		// we let 0 represent one before the array beginning
+		std::size_t begin = Dir==OP::Left ? 1u : groups.size();
+		std::size_t end   = Dir==OP::Left ? groups.size()+1 : 0u;
+		const int   step  = Dir==OP::Left ? 1 : -1;
+
+		for (std::size_t i=begin; i!=end; ) {
+			f(i-1);
+			i = groups[i-1]+1 + step;
 		}
 	}
 	// iterate left-first be default
 	template <typename Fn>
 	void iterateGroups(const Grouping& groups, Fn f) {
-		return iterateGroups<OP::Left>(groups,f);
+		iterateGroups<OP::Left>(groups,f);
 	}
 }
