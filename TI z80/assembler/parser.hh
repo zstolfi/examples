@@ -1,5 +1,6 @@
 #pragma once
 #include "common.hh"
+#include "operators.hh"
 // #include "opcode table.hh"
 #include <span>
 #include <optional>
@@ -7,50 +8,25 @@
 #include <array>
 #include <stack>
 
+namespace OP {
+	// Order of Operations table! Modify
+	// it for the parser of your choice.
+	constexpr std::tuple Order {
+		std::pair{Right, std::array{Exp}},
+		std::pair{Left , std::array{Mult, Div}},
+		std::pair{Left , std::array{Add, Sub}},
+	};
+}
+
 namespace /*detail*/ {
-	namespace OP {
-		enum Assoc { Left, Right };
-		struct UnaryOpInfo {
-			TokenType token;
-			integer(*fn)(integer);
-			integer operator()(integer x) const { return fn(x); }
-		};
-
-		struct BinaryOpInfo {
-			TokenType token;
-			integer(*fn)(integer, integer);
-			integer operator()(integer x, integer y) const { return fn(x,y); }
-		};
-
-		constexpr BinaryOpInfo
-			Add  {TokenType::Plus , [](auto a, auto b) { return a + b; }},
-			Sub  {TokenType::Minus, [](auto a, auto b) { return a - b; }},
-			Mult {TokenType::Mult , [](auto a, auto b) { return a * b; }},
-			Exp  {TokenType::Exp  , [](auto a, auto b) {
-				integer result = 1;
-				while (b--) { result *= a; }
-				return result;
-			}};
-
-		constexpr std::tuple Order {
-			std::pair{Right, std::array{Exp}},
-			std::pair{Left , std::array{Mult}},
-			std::pair{Left , std::array{Add, Sub}},
-		};
-	}
-
-
-
 	integer parseExpression(std::span<Token>);
 
 	using Grouping = std::vector<std::size_t>;
 	// Describes "grouping" of tokens
 	// i.e. 1 * ( 4 + 2 )
 	// =>   0 1 6 3 4 5 2
-	template <typename Fn>
-	void iterateGroups(const Grouping&, Fn);
-	template <typename Fn>
-	void iterateGroups(OP::Assoc dir, const Grouping&, Fn);
+	template <typename Fn> void iterateGroups(const Grouping&, Fn);
+	template <typename Fn> void iterateGroups(OP::Assoc dir, const Grouping&, Fn);
 
 	struct ExpressionContext {
 		// You know when you use PEMDAS to simplify
@@ -93,24 +69,6 @@ auto parse(std::vector<TokenArray>& lines) {
 }
 
 namespace /*detail*/ {
-	template <typename Fn>
-	void iterateGroups(const Grouping& groups, Fn f) {
-		for (std::size_t i=0, next; i<groups.size(); i = next+1)
-			next = groups[i], f(i,next);
-		}
-
-	template <typename Fn>
-	void iterateGroups(OP::Assoc dir, const Grouping& groups, Fn f) {
-		if (dir == OP::Left) {
-			for (std::size_t i=0, next; i<groups.size(); i = next+1)
-				next = groups[i], f(i,next);
-		} else {
-			auto i = std::ssize(groups); i--;
-			for (std::size_t prev; i>=0; i = prev-1)
-				prev = groups[i], f(prev,i);
-		}
-	}
-
 	integer parseExpression(/*Context& ctx, */std::span<Token> tokens) {
 		auto ctx = ExpressionContext(tokens);
 
@@ -135,6 +93,8 @@ namespace /*detail*/ {
 		std::cout << "| ";
 		return ctx.evaluated[0];
 	}
+
+
 
 	template <OP::Assoc Dir, typename Fn, std::size_t N>
 	void applyOperations(ExpressionContext& ctx, std::array<Fn,N> ops) {
@@ -170,5 +130,25 @@ namespace /*detail*/ {
 				case TokenType::Integer: evaluated[i] = tokens[i].intValue;
 				default: groups[i] = i; break;
 		} }
+	}
+
+
+
+	template <typename Fn>
+	void iterateGroups(const Grouping& groups, Fn f) {
+		for (std::size_t i=0, next; i<groups.size(); i = next+1)
+			next = groups[i], f(i,next);
+		}
+
+	template <typename Fn>
+	void iterateGroups(OP::Assoc dir, const Grouping& groups, Fn f) {
+		if (dir == OP::Left) {
+			for (std::size_t i=0, next; i<groups.size(); i = next+1)
+				next = groups[i], f(i,next);
+		} else {
+			auto i = std::ssize(groups); i--;
+			for (std::size_t prev; i>=0; i = prev-1)
+				prev = groups[i], f(prev,i);
+		}
 	}
 }

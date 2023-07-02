@@ -29,20 +29,20 @@ struct Line {
 
 enum struct TokenType {
 	   Identifier, Directive, Integer, String,
-	// $            ,      :
-	   ProgCounter, Comma, LabelDef,
+	// $       ,      :
+	   Dollar, Comma, Colon,
 	// =       (       )
 	   Assign, Paren0, Paren1,
 	// **   *     /    %    +     -
 	   Exp, Mult, Div, Mod, Plus, Minus,
-	// ==     !=        <   <=   >   >=
-	   Equal, NotEqual, LT, LTE, GT, GTE,
-	// !       &&      ||
-	   LogNot, LogAnd, LogOr,
-	// ~       &       |      ^
-	   BitNot, BitAnd, BitOr, BitXor,
-	// <<       >>
-	   BitLeft, BitRight,
+	// ==     !=      <   <=   >   >=
+	   Equal, NEqual, LT, LTE, GT, GTE,
+	// !     &&      ||
+	   Excl, AmpAmp, BarBar,
+	// ~      &    |    ^
+	   Tilde, Amp, Bar, Hat,
+	// <<     >>
+	   LfArw, RtArw,
 };
 
 struct Token {

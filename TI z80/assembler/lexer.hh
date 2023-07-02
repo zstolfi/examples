@@ -66,33 +66,33 @@ TokenArray lexLine(Line& line) {
 		    continue;                             \
 		}                                          
 		
-		Match("==", TokenType::Equal);
-		Match("=" , TokenType::Assign);
-		Match("**", TokenType::Exp);
-		Match("*" , TokenType::Mult);
-		Match("&&", TokenType::LogAnd);
-		Match("&" , TokenType::BitAnd);
-		Match("||", TokenType::LogOr);
-		Match("|" , TokenType::BitOr);
-		Match("<<", TokenType::BitLeft);
-		Match("<=", TokenType::LTE);
-		Match("<" , TokenType::LT);
-		Match(">>", TokenType::BitRight);
-		Match(">=", TokenType::GTE);
-		Match(">" , TokenType::GT);
-		Match("!=", TokenType::NotEqual);
-		Match("!" , TokenType::LogNot);
-		Match("$" , TokenType::ProgCounter);
-		Match("/" , TokenType::Div);
-		Match("%" , TokenType::Mod);
-		Match("+" , TokenType::Plus);
-		Match("-" , TokenType::Minus);
-		Match("~" , TokenType::BitNot);
-		Match("^" , TokenType::BitXor);
-		Match("," , TokenType::Comma);
-		Match(":" , TokenType::LabelDef);
-		Match("(" , TokenType::Paren0);
-		Match(")" , TokenType::Paren1);
+		Match("==" , TokenType::Equal );
+		Match("="  , TokenType::Assign);
+		Match("**" , TokenType::Exp   );
+		Match("*"  , TokenType::Mult  );
+		Match("&&" , TokenType::AmpAmp);
+		Match("&"  , TokenType::Amp   );
+		Match("||" , TokenType::BarBar);
+		Match("|"  , TokenType::Bar   );
+		Match("<<" , TokenType::LfArw );
+		Match("<=" , TokenType::LTE   );
+		Match("<"  , TokenType::LT    );
+		Match(">>" , TokenType::RtArw );
+		Match(">=" , TokenType::GTE   );
+		Match(">"  , TokenType::GT    );
+		Match("!=" , TokenType::NEqual);
+		Match("!"  , TokenType::Excl  );
+		Match("$"  , TokenType::Dollar);
+		Match("/"  , TokenType::Div   );
+		Match("%"  , TokenType::Mod   );
+		Match("+"  , TokenType::Plus  );
+		Match("-"  , TokenType::Minus );
+		Match("~"  , TokenType::Tilde );
+		Match("^"  , TokenType::Hat   );
+		Match(","  , TokenType::Comma );
+		Match(":"  , TokenType::Colon );
+		Match("("  , TokenType::Paren0);
+		Match(")"  , TokenType::Paren1);
 		PrintWarning("unknown token\n");
 
 		#undef Match
