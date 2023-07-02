@@ -12,7 +12,7 @@ namespace OP {
 	// Order of Operations table! Modify
 	// it for the parser of your choice.
 	constexpr std::tuple Order {
-		std::pair{Right, std::array{BitNot, Pos, Neg}},
+		std::pair{Right, std::array{Pos, Neg}},
 		std::pair{Right, std::array{Exp}},
 		std::pair{Left , std::array{Mult, Div}},
 		std::pair{Left , std::array{Add, Sub}},
@@ -87,14 +87,12 @@ namespace /*detail*/ {
 			}
 		});
 
-		// unary ops
-		applyOperations<OP::Right>(expr, std::get<0>(OP::Order).second);
-		// exponents
-		applyOperations<OP::Right>(expr, std::get<1>(OP::Order).second);
-		// multiply
-		applyOperations<OP::Left >(expr, std::get<2>(OP::Order).second);
-		// add/subtract
-		applyOperations<OP::Left >(expr, std::get<3>(OP::Order).second);
+		// Compile-time iteration through Order of Operations
+		constexpr auto Size = std::tuple_size_v<decltype(OP::Order)>;
+		[&]<std::size_t...I>(std::index_sequence<I...>) {
+			(applyOperations<std::get<I>(OP::Order).first>(expr, std::get<I>(OP::Order).second), ... );
+		}
+		(std::make_index_sequence<Size>{});
 
 		for (integer n : expr.evaluated) { std::cout << n << " "; }
 		std::cout << "| ";
@@ -106,7 +104,7 @@ namespace /*detail*/ {
 	template <OP::Assoc Dir, typename Fn, std::size_t N>
 	void applyOperations(ExpressionContext& ctx, std::array<Fn,N> ops) {
 		auto newGroups = ctx.groups;
-		
+
 		auto matchOp = [&ops](auto token) -> std::optional<Fn> {
 			auto result = ranges::find_if(ops,
 				[&](auto op) { return op.token == token.type; }
