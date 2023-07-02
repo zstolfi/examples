@@ -65,10 +65,10 @@ int main(int argc, char* argv[]) {
 	std::vector<Line> lines = preprocess(source); // remove comments, and parse strings/chars
 
 	/* lex */
-	std::vector<TokenArray> asmLines = lex(lines); // transform each line as a token list
+	std::vector<TokenArray> statements = lex(lines); // transform each line as a token list
 
 	/* assemble */
-	std::vector<std::byte> byteCode = parse(asmLines); // evaluate variables, and look up op-codes
+	std::vector<std::byte> byteCode = parse(statements); // evaluate variables, and look up op-codes
 	return 0;
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)

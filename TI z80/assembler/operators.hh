@@ -11,6 +11,9 @@ namespace /*detail*/ {
 
 namespace OP {
 	enum Assoc { Left, Right };
+	using UnaryFn  = integer(integer);
+	using BinaryFn = integer(integer,integer);
+	
 	struct UnaryOpInfo {
 		TokenType token;
 		integer(*fn)(integer);

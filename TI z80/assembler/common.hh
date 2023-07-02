@@ -57,6 +57,19 @@ struct Token {
 
 using TokenArray = std::vector<Token>;
 
+bool holdsIntValue(TokenType t) {
+	return t == TokenType::Identifier || t == TokenType::Integer
+	    || t == TokenType::Paren0 || t == TokenType::Paren1;
+}
+
+bool holdsStrValue(TokenType t) {
+	return t == TokenType::String;
+}
+
+bool holdsName(TokenType t) {
+	return t == TokenType::Identifier || t == TokenType::Directive;
+}
+
 
 
 constexpr int Invalid_Digit = -1;
