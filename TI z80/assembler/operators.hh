@@ -16,13 +16,13 @@ namespace OP {
 	
 	struct UnaryOpInfo {
 		TokenType token;
-		integer(*fn)(integer);
+		UnaryFn* fn;
 		integer operator()(integer x) const { return fn(x); }
 	};
 
 	struct BinaryOpInfo {
 		TokenType token;
-		integer(*fn)(integer, integer);
+		BinaryFn* fn;
 		integer operator()(integer x, integer y) const { return fn(x,y); }
 	};
 

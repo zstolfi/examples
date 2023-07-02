@@ -12,7 +12,7 @@ namespace OP {
 	// Order of Operations table! Modify
 	// it for the parser of your choice.
 	constexpr std::tuple Order {
-		std::pair{Right, std::array{BitNot}},
+		std::pair{Right, std::array{BitNot, Pos, Neg}},
 		std::pair{Right, std::array{Exp}},
 		std::pair{Left , std::array{Mult, Div}},
 		std::pair{Left , std::array{Add, Sub}},
@@ -76,12 +76,12 @@ namespace /*detail*/ {
 		auto expr = ExpressionContext(tokens);
 
 		// parentheses first
-		iterateGroups(expr.groups, [&](auto i, auto next) {
-			if (next-i > 0) {
-				std::span<Token> inParens = tokens.subspan(i+1, next-i-1);
+		iterateGroups(expr.groups, [&](auto i0, auto i1) {
+			if (i0 < i1) {
+				std::span<Token> inParens = tokens.subspan(i0+1, i1-i0-1);
 				integer parenValue = parseExpression(inParens);
-				expr.evaluated[i]    = parenValue;
-				expr.evaluated[next] = parenValue;
+				expr.evaluated[i0] = parenValue;
+				expr.evaluated[i1] = parenValue;
 			}
 		});
 
@@ -122,9 +122,10 @@ namespace /*detail*/ {
 				if (i+1 < size) { next = newGroups[i+1]; }
 				auto& expr = Dir==OP::Left ? prev : next;
 				auto& adj  = Dir==OP::Left ? next : prev;
+				// Break if there's no expr to apply to
 				if (!expr) { return; }
-				if (adj && holdsIntValue(ctx.tokens[*adj].type))
-					PrintError("Using unary-op like binary-op");
+				// Or if our op has two expr's like a binary-op
+				if (adj && holdsIntValue(ctx.tokens[*adj].type)) { return; }
 
 				integer result = (*op)(ctx.evaluated[*expr]);
 				ctx.evaluated[*expr] = result;
@@ -135,16 +136,18 @@ namespace /*detail*/ {
 		} else if constexpr (std::is_same_v<Fn, OP::BinaryOpInfo>) {
 			iterateGroups<Dir>(ctx.groups, [&](auto i, auto) {
 				auto op = matchOp(ctx.tokens[i]); if (!op) { return; }
-				// Apply our operator, if it's in `ops`
-				if (!(0 < i&&i < size-1)) { return; }
-				// But not if we don't have both operands
-				std::size_t begin = newGroups[i-1];
-				std::size_t end   = newGroups[i+1];
-				integer result = (*op)(ctx.evaluated[begin], ctx.evaluated[end]);
-				ctx.evaluated[begin] = result;
-				ctx.evaluated[end]   = result;
-				newGroups[begin] = end;
-				newGroups[end] = begin;
+
+				std::optional<std::size_t> prev, next;
+				if (i   > 0   ) { prev = newGroups[i-1]; }
+				if (i+1 < size) { next = newGroups[i+1]; }
+				if (prev && !holdsIntValue(ctx.tokens[*prev].type)) { return; }
+				if (next && !holdsIntValue(ctx.tokens[*next].type)) { return; }
+
+				integer result = (*op)(ctx.evaluated[*prev], ctx.evaluated[*next]);
+				ctx.evaluated[*prev] = result;
+				ctx.evaluated[*next]   = result;
+				newGroups[*prev] = *next;
+				newGroups[*next] = *prev;
 			});
 		}
 		ctx.groups = newGroups;
