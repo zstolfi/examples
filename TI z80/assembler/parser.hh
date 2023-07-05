@@ -1,7 +1,7 @@
 #pragma once
 #include "common.hh"
 #include "operators.hh"
-// #include "opcode table.hh"
+#include "opcode table.hh"
 #include <span>
 #include <optional>
 #include <tuple>
@@ -88,6 +88,10 @@ namespace /*detail*/ {
 		});
 
 		// Compile-time iteration through Order of Operations
+		// I could not get std::apply to work, as passing the
+		// elements of OP::Order as parameters de-constexpr's
+		// them. If I'm revisiting this code in the future of
+		// C++26, I'll replace with an 'expansion statement'.
 		constexpr auto Size = std::tuple_size_v<decltype(OP::Order)>;
 		[&]<std::size_t...I>(std::index_sequence<I...>) {
 			(applyOperations<std::get<I>(OP::Order).first>(expr, std::get<I>(OP::Order).second), ... );
@@ -187,7 +191,7 @@ namespace /*detail*/ {
 			i = groups[i-1]+1 + step;
 		}
 	}
-	// iterate left-first be default
+	// iterate left-first by default
 	template <typename Fn>
 	void iterateGroups(const Grouping& groups, Fn f) {
 		iterateGroups<OP::Left>(groups,f);
