@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <array>
 
 enum struct Word { LSB, MSB };
@@ -33,3 +34,21 @@ constexpr auto Bytes(const char (&str)[N]) {
 //	constexpr auto Bytes(const char (&str)[N]) {
 //		return Bytes<N-1,N>(str);
 //	}
+
+
+
+
+template<typename T>
+concept ByteContainer = std::is_same_v<typename T::value_type,std::byte>;
+
+// output single byte
+std::ostream& operator<<(std::ostream& os, const std::byte& b) {
+	return os.put((char)b);
+}
+
+// output array/vector of bytes
+template <ByteContainer T>
+std::ostream& operator<<(std::ostream& os, const T& bytes) {
+	for (std::byte b : bytes) { os << b; }
+	return os;
+}
