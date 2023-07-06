@@ -12,8 +12,8 @@ enum struct ParamType { none, _ = none,
 	n, nn, d, b, e,   // number types
 	cc,               // conditions
 	AF_p, IMn, RSTn   // sporadic few
-	};
-using ParamVal = unsigned char;
+};
+using ParamVal = int;
 
 namespace /*detail*/ {
 	using enum ParamType;

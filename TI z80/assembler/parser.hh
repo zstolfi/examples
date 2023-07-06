@@ -33,6 +33,7 @@ namespace /*detail*/ {
 	// All possible ways a parameter can be interpreted
 	// i.e. 128 => {n, nn, e}
 	//      A   => {A, r}
+	ParamVal getParamVal(ParamType, std::span<Token>);
 
 
 	using Grouping = std::vector<std::size_t>;
@@ -167,8 +168,9 @@ auto parse(std::vector<TokenArray>& lines) {
 		// OpCode on the queue
 		if (auto* statement = std::get_if<Statement>(&i)) {
 			ctx.progCounter = statement->address;
-			// TODO: parse param values
-			bytes = statement->op(0,0);
+			ParamVal p0 = getParamVal(statement->op.pt0, statement->param0);
+			ParamVal p1 = getParamVal(statement->op.pt1, statement->param1);
+			bytes = statement->op(p0,p1);
 		}
 
 		result.insert(result.end(), bytes.begin(), bytes.end());
@@ -241,6 +243,60 @@ namespace /*detail*/ {
 			}
 		}
 		return result;
+	}
+
+	ParamVal getParamVal(ParamType type, std::span<Token> t) {
+		using PT = ParamType;
+		if (isAny(type, PT::IX_d, PT::IY_d)) {
+			if (t.size() == 3) { return {}; }
+			// integer d = parseExpression(ctx, t.subspan(3, t.size()-4));
+			integer d = t[3].intValue;
+			ParamVal v = (signed)d;
+			if (!(-128 <= v&&v <= 127)) { PrintError("invalid IX/IY offset"); }
+			return v;
+		} else if (type == PT::r) {
+			if (t[0].strValue == "a") { return 0b111; }
+			if (t[0].strValue == "b") { return 0b000; }
+			if (t[0].strValue == "c") { return 0b001; }
+			if (t[0].strValue == "d") { return 0b010; }
+			if (t[0].strValue == "e") { return 0b011; }
+			if (t[0].strValue == "h") { return 0b100; }
+			if (t[0].strValue == "l") { return 0b101; }
+		} else if (type == PT::qq) {
+			if (t[0].strValue == "bc") { return 0b00; }
+			if (t[0].strValue == "de") { return 0b01; }
+			if (t[0].strValue == "hl") { return 0b10; }
+			if (t[0].strValue == "af") { return 0b11; }
+		} else if (type == PT::ss) {
+			if (t[0].strValue == "bc") { return 0b00; }
+			if (t[0].strValue == "de") { return 0b01; }
+			if (t[0].strValue == "hl") { return 0b10; }
+			if (t[0].strValue == "sp") { return 0b11; }
+		} else if (type == PT::pp) {
+			if (t[0].strValue == "bc") { return 0b00; }
+			if (t[0].strValue == "de") { return 0b01; }
+			if (t[0].strValue == "ix") { return 0b10; }
+			if (t[0].strValue == "sp") { return 0b11; }
+		} else if (type == PT::rr) {
+			if (t[0].strValue == "bc") { return 0b00; }
+			if (t[0].strValue == "de") { return 0b01; }
+			if (t[0].strValue == "iy") { return 0b10; }
+			if (t[0].strValue == "sp") { return 0b11; }
+		} else if (type == PT::cc) {
+			if (t[0].strValue == "nz") { return 0b000; }
+			if (t[0].strValue == "z" ) { return 0b001; }
+			if (t[0].strValue == "nc") { return 0b010; }
+			if (t[0].strValue == "c" ) { return 0b011; }
+			if (t[0].strValue == "po") { return 0b100; }
+			if (t[0].strValue == "pe") { return 0b101; }
+			if (t[0].strValue == "p" ) { return 0b110; }
+			if (t[0].strValue == "m" ) { return 0b111; }
+		}
+		else if (isAny(type, PT::n, PT::nn, PT::d, PT::b, PT::e,
+		/*                */ PT::IMn, PT::RSTn)) {
+			return t[0].intValue;
+		}
+		return {}; // value doesn't matter
 	}
 
 	
