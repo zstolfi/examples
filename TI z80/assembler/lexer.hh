@@ -51,13 +51,13 @@ TokenArray lexLine(Line& line) {
 			auto& vec = line.strings.front();
 			auto stringVal = std::string{vec.begin(), vec.end()};
 			result.emplace_back(TokenType::String, stringVal);
-			line.strings.pop_front(); continue;
+			line.strings.pop(); continue;
 		}
 		// character literal
 		if (str[i] == '\'') {
 			integer intVal = line.characters.front();
 			result.emplace_back(TokenType::Integer, intVal);
-			line.characters.pop_front(); continue;
+			line.characters.pop(); continue;
 		}
 
 		#define Match(S,TT)                       \
@@ -91,6 +91,7 @@ TokenArray lexLine(Line& line) {
 		Match("^"  , TokenType::Hat   );
 		Match(","  , TokenType::Comma );
 		Match(":"  , TokenType::Colon );
+		Match("`"  , TokenType::Tick );
 		Match("("  , TokenType::Paren0);
 		Match(")"  , TokenType::Paren1);
 		PrintWarning("unknown token\n");

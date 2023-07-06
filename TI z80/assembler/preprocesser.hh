@@ -54,7 +54,7 @@ auto preprocess(std::istream& is) {
 		else if (state == String) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tString\n");
 			if (c == '"') { state = Code;
-				line.strings.push_back(curString);
+				line.strings.push(curString);
 				line.text += '"';
 				continue; }
 			curString.push_back(parseChar(c,is));
@@ -62,7 +62,7 @@ auto preprocess(std::istream& is) {
 		else if (state == Char1) {
 			DEBUG(row << "\t" << col << "\t'" << c << "'\tChar1\n");
 			if (c == '\'') { PrintError("empty char literal\n"); }
-			line.characters.push_back(parseChar(c,is));
+			line.characters.push(parseChar(c,is));
 			state = Char2;
 		}
 		else if (state == Char2) {

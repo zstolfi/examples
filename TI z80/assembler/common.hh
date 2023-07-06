@@ -3,12 +3,17 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <list>
+#include <queue>
 #include <algorithm>
 #include <ranges>
 namespace ranges = std::ranges;
 
 using integer = unsigned long;
+
+template <typename T, typename... Args>
+bool isAny(T val, Args... args) {
+	return ((val == args) || ... );
+}
 
 
 
@@ -22,15 +27,15 @@ struct Line {
 	std::size_t row, col;
 	std::string text;
 
-	std::list<std::vector<char>> strings;
-	std::list<char> characters;
+	std::queue<std::vector<char>> strings;
+	std::queue<char> characters;
 //	Scope scope;
 };
 
 enum struct TokenType {
 	   Identifier, Directive, Integer, String,
-	// $       ,      :
-	   Dollar, Comma, Colon,
+	// $       ,      :      `
+	   Dollar, Comma, Colon, Tick,
 	// =       (       )
 	   Assign, Paren0, Paren1,
 	// **   *     /    %    +     -
@@ -58,17 +63,27 @@ struct Token {
 using TokenArray = std::vector<Token>;
 
 bool holdsIntValue(TokenType t) {
-	return t == TokenType::Identifier || t == TokenType::Integer
-	    || t == TokenType::Paren0 || t == TokenType::Paren1;
+	using enum TokenType;
+	return isAny(t, Identifier, Integer, Paren0, Paren1);
 }
 
 bool holdsStrValue(TokenType t) {
-	return t == TokenType::String;
+	using enum TokenType;
+	return isAny(t, String);
 }
 
 bool holdsName(TokenType t) {
-	return t == TokenType::Identifier || t == TokenType::Directive;
+	using enum TokenType;
+	return isAny(t, Identifier, Directive);
 }
+
+std::optional<Token> findToken(const auto& tokens, TokenType type) {
+	auto result = ranges::find_if(tokens,
+		[&](auto t) { return t.type == type; }
+	);
+	if (result != tokens.end()) { return *result; }
+	return {};
+};
 
 
 

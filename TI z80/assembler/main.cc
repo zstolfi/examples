@@ -69,13 +69,12 @@ int main(int argc, char* argv[]) {
 
 	/* assemble */
 	std::vector<std::byte> byteCode = parse(statements); // evaluate variables, and look up op-codes
-	return 0;
+	output << byteCode; return 0;
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)
 	output << Bytes<11>("**TI83F*\x1A\x0A");
 	output << Bytes<42>("Assembled by Zander Stolfi");
 	output << Bytes<Word::LSB>(byteCode.size() + 19);
-	// begin checksum
 	Checksum cs;
 	output << cs << Bytes<Word::LSB>(13);
 	output << cs << Bytes<Word::LSB>(byteCode.size() + 2 );
@@ -85,7 +84,6 @@ int main(int argc, char* argv[]) {
 	output << cs << Bytes<Word::LSB>(byteCode.size() + 2 );
 	output << cs << Bytes<Word::LSB>(byteCode.size()     );
 	output << cs << byteCode;
-	// end checksum
 	output << Bytes<Word::LSB>(cs.value);
 	return 0;
 }
