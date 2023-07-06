@@ -24,7 +24,7 @@ namespace /*detail*/ {
 		ParamType pt1;
 		std::size_t size;
 		OpFn* fn;
-		auto operator()(ParamVal x, ParamVal y) { return fn(x,y); }
+		auto operator()(ParamVal x, ParamVal y) const { return fn(x,y); }
 	};
 
 	template <typename... Args>

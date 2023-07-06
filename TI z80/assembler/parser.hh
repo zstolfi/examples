@@ -8,6 +8,8 @@
 #include <tuple>
 #include <array>
 #include <stack>
+#include <set>
+#include <variant>
 using namespace std::literals;
 
 namespace OP {
@@ -27,7 +29,7 @@ namespace /*detail*/ {
 		/* store variables here */
 	};
 
-	std::vector<ParamType> getParamTypes(std::span<Token>);
+	std::set<ParamType> getParamTypes(std::span<Token>);
 	// All possible ways a parameter can be interpreted
 	// i.e. 128 => {n, nn, e}
 	//      A   => {A, r}
@@ -69,13 +71,8 @@ namespace /*detail*/ {
 
 auto parse(std::vector<TokenArray>& lines) {
 	std::vector<std::byte> result {};
-	// TODO: Syntax checks
+	// TODO: Basic syntax checks
 	Context ctx;
-
-	auto append = [&](const auto& bytes) {
-		result.insert(result.end(), bytes.begin(), bytes.end());
-		ctx.progCounter += bytes.size();
-	};
 
 	// pass 1: evaluate all label addresses and put them into context
 	//         also queue every opcode / param (and reserve its size)
@@ -85,7 +82,11 @@ auto parse(std::vector<TokenArray>& lines) {
 		std::span<Token> param0;
 		std::span<Token> param1;
 	};
-	std::queue<Statement> statementQueue;
+	using Data = std::vector<std::byte>;
+
+	std::queue<
+		std::variant<Statement, Data>
+	> statementQueue;
 
 	for (TokenArray& line : lines) {
 		if (line[0].type == TokenType::Directive) {
@@ -97,7 +98,9 @@ auto parse(std::vector<TokenArray>& lines) {
 				auto params = splitArgs({++line.begin(), line.end()});
 				for (auto param : params) {
 					integer val = parseExpression(ctx, param);
-					append(Bytes(val));
+					auto b = Bytes(val);
+					statementQueue.push(std::vector(b.begin(), b.end()));
+					ctx.progCounter += b.size();
 				}
 				continue;
 			}
@@ -105,7 +108,9 @@ auto parse(std::vector<TokenArray>& lines) {
 				auto params = splitArgs({++line.begin(), line.end()});
 				for (auto param : params) {
 					integer val = parseExpression(ctx, param);
-					append(Bytes<Word::LSB>(val));
+					auto b = Bytes<Word::LSB>(val);
+					statementQueue.push(std::vector(b.begin(), b.end()));
+					ctx.progCounter += b.size();
 				}
 				continue;
 			}
@@ -114,24 +119,35 @@ auto parse(std::vector<TokenArray>& lines) {
 		if (line[0].type == TokenType::Identifier) {
 			if (OpCodeTable.contains(line[0].strValue)) {
 				auto args = splitArgs({++line.begin(), line.end()});
-				std::vector<ParamType> paramTypes0, paramTypes1;
+				std::set<ParamType> paramTypes0, paramTypes1;
 				paramTypes0 = paramTypes1 = { ParamType::none };
 				if (args.size() >= 1) { paramTypes0 = getParamTypes(args[0]); }
 				if (args.size() >= 2) { paramTypes1 = getParamTypes(args[1]); }
 				if (args.size() >= 3) { PrintWarning("too many opcode arguments\n"); }
 				args.resize(2);
 
+				PrintStatus("{");
+				for (auto p : paramTypes0)
+					PrintStatus(" " << (int)p);
+				PrintStatus(" } {");
+				for (auto p : paramTypes1)
+					PrintStatus(" " << (int)p);
+				PrintStatus(" }\t");
+
 				auto [begin,end] = OpCodeTable.equal_range(line[0].strValue);
 				auto it = std::find_if(begin, end,
-					// [&](auto op) { return op.second.pt0==param0 && op.second.pt1==param1; }
-					// TODO: iterate through all possible pairs of
-					//       paramters to find the matching opcode
-					[&](auto op) { return true; }
+					[&](auto pair) { auto op = pair.second;
+						return paramTypes0.contains(op.pt0)
+						    && paramTypes1.contains(op.pt1);
+					}
 				);
 				if (it == end) { PrintError("unknown opcode arguments"); }
 				const OpCode& op = it->second;
 
-				statementQueue.emplace(ctx.progCounter, op, args[0], args[1]);
+				PrintStatus((int)op.pt0 << " " << (int)op.pt1 << "\n");
+				statementQueue.push(Statement{
+					ctx.progCounter, op, args[0], args[1]
+				});
 				ctx.progCounter += op.size;
 				continue;
 			}
@@ -139,12 +155,24 @@ auto parse(std::vector<TokenArray>& lines) {
 	}
 
 	PrintStatus("START\n");
+
 	// pass 2: evaluate all statements
-	// for (; !statementQueue.empty(); statementQueue.pop()) {
-	// 	auto statement = statementQueue.front();
-	// 	PrintStatus(statement.address << "\n");
-	// 	/* ... */
-	// }
+	for (; !statementQueue.empty(); statementQueue.pop()) {
+		auto i = statementQueue.front();
+		
+		std::vector<std::byte> bytes;
+		// Data on the queue
+		if (auto* data = std::get_if<Data>(&i))
+			bytes = *data;
+		// OpCode on the queue
+		if (auto* statement = std::get_if<Statement>(&i)) {
+			ctx.progCounter = statement->address;
+			// TODO: parse param values
+			bytes = statement->op(0,0);
+		}
+
+		result.insert(result.end(), bytes.begin(), bytes.end());
+	}
 	PrintStatus("FINISH\n");
 
 	return result;
@@ -165,51 +193,51 @@ namespace /*detail*/ {
 		return result;
 	}
 
-	std::vector<ParamType> getParamTypes(std::span<Token> t) {
-		std::vector<ParamType> result {};
+	std::set<ParamType> getParamTypes(std::span<Token> t) {
+		std::set<ParamType> result {};
 		using PT = ParamType;
 		if (t.size()==1 && t[0].type == TokenType::Identifier) {
 			if (isAny(t[0].strValue, "a","b","c","d","e","h","l"))
-				result.push_back(PT::r);
-			if (t[0].strValue == "a" ) { result.push_back(PT::A ); }
-			if (t[0].strValue == "hl") { result.push_back(PT::HL); }
-			if (t[0].strValue == "ix") { result.push_back(PT::IX); }
-			if (t[0].strValue == "iy") { result.push_back(PT::IY); }
+				result.insert(PT::r);
+			if (t[0].strValue == "a" ) { result.insert(PT::A ); }
+			if (t[0].strValue == "hl") { result.insert(PT::HL); }
+			if (t[0].strValue == "ix") { result.insert(PT::IX); }
+			if (t[0].strValue == "iy") { result.insert(PT::IY); }
 			if (isAny(t[0].strValue, "nz","z","nc","c","po","pe","p","m"))
-				result.push_back(PT::cc);
-			if (isAny(t[0].strValue, "bc","de","hl","af")) { result.push_back(PT::qq); }
-			if (isAny(t[0].strValue, "bc","de","hl","sp")) { result.push_back(PT::ss); }
-			if (isAny(t[0].strValue, "bc","de","ix","sp")) { result.push_back(PT::pp); }
-			if (isAny(t[0].strValue, "bc","de","iy","sp")) { result.push_back(PT::rr); }
+				result.insert(PT::cc);
+			if (isAny(t[0].strValue, "bc","de","hl","af")) { result.insert(PT::qq); }
+			if (isAny(t[0].strValue, "bc","de","hl","sp")) { result.insert(PT::ss); }
+			if (isAny(t[0].strValue, "bc","de","ix","sp")) { result.insert(PT::pp); }
+			if (isAny(t[0].strValue, "bc","de","iy","sp")) { result.insert(PT::rr); }
 		}
 		else if (t.size()==2 && t[0].type == TokenType::Identifier) {
 			if (t[0].strValue == "af" && t[1].type == TokenType::Tick)
-				result.push_back(PT::AF_p);
+				result.insert(PT::AF_p);
 		}
 		else if (t.size()==1 && holdsIntValue(t[0].type)) {
 			// integer n = parseExpression(/* ... */); TODO
 			integer n = t[0].intValue;
-			if (0 <= n&&n <= 7    ) { result.push_back(PT::b ); }
-			if (0 <= n&&n <= 255  ) { result.push_back(PT::n ); }
-			if (0 <= n&&n <= 65535) { result.push_back(PT::nn); }
-			if (-128 <= (signed)n&&n <= 127) { result.push_back(PT::d); }
-			if (-126 <= (signed)n&&n <= 129) { result.push_back(PT::e); }
-			if (0 <= n&&n <= 3) { result.push_back(PT::IMn); }
-			if (n<64 && n%8 == 0) { result.push_back(PT::RSTn); }
+			if (0 <= n&&n <= 7    ) { result.insert(PT::b ); }
+			if (0 <= n&&n <= 255  ) { result.insert(PT::n ); }
+			if (0 <= n&&n <= 65535) { result.insert(PT::nn); }
+			if (-128 <= (signed)n&&n <= 127) { result.insert(PT::d); }
+			if (-126 <= (signed)n&&n <= 129) { result.insert(PT::e); }
+			if (0 <= n&&n <= 3) { result.insert(PT::IMn); }
+			if (n<64 && n%8 == 0) { result.insert(PT::RSTn); }
 		}
 		else {
 			if (t.front().type == TokenType::Paren0
 			&&  t.back ().type == TokenType::Paren1
 			&&  t[1].type == TokenType::Identifier) {
 				if (t.size()==3) {
-					if (t[1].strValue == "hl") { result.push_back(PT::HL_d); }
-					if (t[1].strValue == "ix") { result.push_back(PT::IX_d); }
-					if (t[1].strValue == "iy") { result.push_back(PT::IY_d); }
+					if (t[1].strValue == "hl") { result.insert(PT::HL_d); }
+					if (t[1].strValue == "ix") { result.insert(PT::IX_d); }
+					if (t[1].strValue == "iy") { result.insert(PT::IY_d); }
 				}
 				if (t[1].strValue == "ix" && t[2].type == TokenType::Plus)
-					result.push_back(PT::IX_d);
+					result.insert(PT::IX_d);
 				if (t[1].strValue == "iy" && t[2].type == TokenType::Plus)
-					result.push_back(PT::IY_d);
+					result.insert(PT::IY_d);
 			}
 		}
 		return result;
