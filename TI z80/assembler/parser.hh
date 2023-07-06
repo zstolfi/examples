@@ -78,7 +78,15 @@ auto parse(std::vector<TokenArray>& lines) {
 	};
 
 	// pass 1: evaluate all label addresses and put them into context
-	//         also determine each TYPE of opcode (to know it's size)
+	//         also queue every opcode / param (and reserve its size)
+	struct Statement {
+		std::size_t address;
+		const OpCode& op;
+		std::span<Token> param0;
+		std::span<Token> param1;
+	};
+	std::queue<Statement> statementQueue;
+
 	for (TokenArray& line : lines) {
 		if (line[0].type == TokenType::Directive) {
 			if (isAny(line[0].strValue, "org","origin")) {
@@ -107,33 +115,37 @@ auto parse(std::vector<TokenArray>& lines) {
 			if (OpCodeTable.contains(line[0].strValue)) {
 				auto args = splitArgs({++line.begin(), line.end()});
 				std::vector<ParamType> paramTypes0, paramTypes1;
+				paramTypes0 = paramTypes1 = { ParamType::none };
 				if (args.size() >= 1) { paramTypes0 = getParamTypes(args[0]); }
 				if (args.size() >= 2) { paramTypes1 = getParamTypes(args[1]); }
 				if (args.size() >= 3) { PrintWarning("too many opcode arguments\n"); }
+				args.resize(2);
 
 				auto [begin,end] = OpCodeTable.equal_range(line[0].strValue);
-				auto opcode = std::find_if(begin, end,
+				auto it = std::find_if(begin, end,
 					// [&](auto op) { return op.second.pt0==param0 && op.second.pt1==param1; }
 					// TODO: iterate through all possible pairs of
 					//       paramters to find the matching opcode
 					[&](auto op) { return true; }
 				);
-				if (opcode == end) { PrintError("unknown opcode arguments"); }
+				if (it == end) { PrintError("unknown opcode arguments"); }
+				const OpCode& op = it->second;
 
-				append(Bytes(0x00));
+				statementQueue.emplace(ctx.progCounter, op, args[0], args[1]);
+				ctx.progCounter += op.size;
 				continue;
 			}
 		}
 	}
 
-	// pass 2: execute all statements (each is just an expression for now)
-	for (TokenArray& line : lines) {
-		// DEBUG(parseExpression(line) << "\n");
-		integer value = parseExpression(ctx, line);
-		PrintStatus(value << "\n");
-		// if (auto result = parseExpression(line))
-		// 	DEBUG(*result << "\n");
-	}
+	PrintStatus("START\n");
+	// pass 2: evaluate all statements
+	// for (; !statementQueue.empty(); statementQueue.pop()) {
+	// 	auto statement = statementQueue.front();
+	// 	PrintStatus(statement.address << "\n");
+	// 	/* ... */
+	// }
+	PrintStatus("FINISH\n");
 
 	return result;
 }
@@ -170,20 +182,26 @@ namespace /*detail*/ {
 			if (isAny(t[0].strValue, "bc","de","ix","sp")) { result.push_back(PT::pp); }
 			if (isAny(t[0].strValue, "bc","de","iy","sp")) { result.push_back(PT::rr); }
 		}
+		else if (t.size()==2 && t[0].type == TokenType::Identifier) {
+			if (t[0].strValue == "af" && t[1].type == TokenType::Tick)
+				result.push_back(PT::AF_p);
+		}
 		else if (t.size()==1 && holdsIntValue(t[0].type)) {
-			// integer n = parseExpression(/* ... */);
+			// integer n = parseExpression(/* ... */); TODO
 			integer n = t[0].intValue;
 			if (0 <= n&&n <= 7    ) { result.push_back(PT::b ); }
 			if (0 <= n&&n <= 255  ) { result.push_back(PT::n ); }
 			if (0 <= n&&n <= 65535) { result.push_back(PT::nn); }
 			if (-128 <= (signed)n&&n <= 127) { result.push_back(PT::d); }
 			if (-126 <= (signed)n&&n <= 129) { result.push_back(PT::e); }
+			if (0 <= n&&n <= 3) { result.push_back(PT::IMn); }
+			if (n<64 && n%8 == 0) { result.push_back(PT::RSTn); }
 		}
 		else {
 			if (t.front().type == TokenType::Paren0
 			&&  t.back ().type == TokenType::Paren1
 			&&  t[1].type == TokenType::Identifier) {
-				if (t.size() == 3) {
+				if (t.size()==3) {
 					if (t[1].strValue == "hl") { result.push_back(PT::HL_d); }
 					if (t[1].strValue == "ix") { result.push_back(PT::IX_d); }
 					if (t[1].strValue == "iy") { result.push_back(PT::IY_d); }
