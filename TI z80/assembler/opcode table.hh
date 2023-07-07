@@ -6,15 +6,17 @@
 // Z80 CPU User Manual pg. 39
 enum struct ParamType { none, _ = none,
 	A, HL, IX, IY,    // exaclt register names
+	BC, DE, AF,       
 	I, R, SP,         
 	HL_d, IX_d, IY_d, // indirection
-	BC_d, DE_d, nn_d, 
-	SP_d,             
-	r,                // 8-bit registers
+	IX_q, IY_q,       //     q = no offet
+	BC_d, DE_d, SP_d, 
+	nn_d, n_d, C_d,   
+	r,                //  8-bit reg. groups
 	qq, ss, pp, rr,   // 16-bit reg. groups
 	n, nn, d, b, e,   // number types
-	cc, JRcc          // conditions
-	AF_p, IMn, RSTn   // sporadic few
+	cc, JRcc,         // conditions
+	AF_p, IMn, RSTn,  // sporadic few
 };
 using ParamVal = int;
 
@@ -36,6 +38,30 @@ namespace /*detail*/ {
 	    return std::vector(arr.begin(), arr.end());
 	}
 }
+
+static const std::map<
+	ParamType,
+	std::vector<std::string_view>
+> ParamValTable {
+	{A,{"a"}}, {I,{"i"}}, {R,{"r"}}, {SP,{"sp"}},
+	{HL,{"hl"}}, {IX,{"ix"}}, {IY,{"iy"}},
+	{BC,{"bc"}}, {DE,{"de"}}, {AF,{"af"}},
+	//     order very much matters
+	{r   , {"b","c","d","e","h","l"," ","a"}},
+	{qq  , {"bc","de","hl","af"}},
+	{ss  , {"bc","de","hl","sp"}},
+	{pp  , {"bc","de","ix","sp"}},
+	{rr  , {"bc","de","iy","sp"}},
+	{cc  , {"nz","z","nc","c","po","pe","p","m"}},
+	{JRcc, {"nz","z","nc","c"}}//,
+},
+
+ParamValTable_d {
+	{HL_d, {"hl"}}, {SP_d, {"sp"}},
+	{IX_q, {"ix"}}, {IY_q, {"iy"}},
+	{BC_d, {"bc"}}, {DE_d, {"de"}},
+	{C_d , {"c" }}//,
+};
 
 // Z80 CPU User Manual pg. 69
 const std::multimap<std::string_view, OpCode> OpCodeTable  {
@@ -63,15 +89,15 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"ld"  }, { I   , A   , 2, BV(  ,   , 0xED, 0x47        ) }},
 	{{"ld"  }, { R   , A   , 2, BV(  ,   , 0xED, 0x4F        ) }},
 	// 16-Bit Load Group
-	{{"ld"  }, { dd  , nn  , 3, BV(dd, nn, 0x01|dd<<4, nn, nn>>8      ) }},
+	{{"ld"  }, { ss  , nn  , 3, BV(ss, nn, 0x01|ss<<4, nn, nn>>8      ) }},
 	{{"ld"  }, { IX  , nn  , 4, BV(  , nn, 0xDD, 0x21, nn, nn>>8      ) }},
 	{{"ld"  }, { IY  , nn  , 4, BV(  , nn, 0xFD, 0x21, nn, nn>>8      ) }},
 	{{"ld"  }, { HL  , nn_d, 3, BV(  , nn, 0x2A, nn, nn>>8            ) }},
-	{{"ld"  }, { dd  , nn_d, 4, BV(dd, nn, 0xED, 0x4B|dd<<4, nn, nn>>8) }},
+	{{"ld"  }, { ss  , nn_d, 4, BV(ss, nn, 0xED, 0x4B|ss<<4, nn, nn>>8) }},
 	{{"ld"  }, { IX  , nn_d, 4, BV(  , nn, 0xDD, 0x2A, nn, nn>>8      ) }},
 	{{"ld"  }, { IY  , nn_d, 4, BV(  , nn, 0xFD, 0x2A, nn, nn>>8      ) }},
 	{{"ld"  }, { nn_d, HL  , 3, BV(nn,   , 0x22, nn, nn>>8            ) }},
-	{{"ld"  }, { nn_d, dd  , 3, BV(nn, dd, 0xED, 0x43|dd<<4, nn, nn>>8) }},
+	{{"ld"  }, { nn_d, ss  , 3, BV(nn, ss, 0xED, 0x43|ss<<4, nn, nn>>8) }},
 	{{"ld"  }, { nn_d, IX  , 4, BV(nn,   , 0xDD, 0x22, nn, nn>>8      ) }},
 	{{"ld"  }, { nn_d, IY  , 4, BV(nn,   , 0xFD, 0x22, nn, nn>>8      ) }},
 	{{"ld"  }, { SP  , HL  , 1, BV(  ,   , 0xF9                       ) }},
@@ -237,7 +263,7 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"rst" }, { RSTn, _   , 1, BV(n ,   , 0xC7|n               ) }},
 	// Input and Output Group
 	{{"in"  }, { A   , n_d , 2, BV(  , n , 0xDB, n        ) }},
-	{{"in"  }, { r   , C_d , 2, BV(r ,   , 0xED, 0x40|r<<3) }}, // possibly allow flag
+	{{"in"  }, { r   , C_d , 2, BV(r ,   , 0xED, 0x40|r<<3) }},
 	{{"ini" }, { _   , _   , 2, BV(  ,   , 0xED, 0xA2     ) }},
 	{{"inir"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB2     ) }},
 	{{"ind" }, { _   , _   , 2, BV(  ,   , 0xED, 0xAA     ) }},
@@ -247,7 +273,7 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"outi"}, { _   , _   , 2, BV(  ,   , 0xED, 0xA3     ) }},
 	{{"outr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB3     ) }},
 	{{"outd"}, { _   , _   , 2, BV(  ,   , 0xED, 0xAB     ) }},
-	{{"otdr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xBB     ) }},
+	{{"otdr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xBB     ) }}//,
 	#undef BV
 };
 

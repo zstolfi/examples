@@ -199,18 +199,10 @@ namespace /*detail*/ {
 		std::set<ParamType> result {};
 		using PT = ParamType;
 		if (t.size()==1 && t[0].type == TokenType::Identifier) {
-			if (isAny(t[0].strValue, "a","b","c","d","e","h","l"))
-				result.insert(PT::r);
-			if (t[0].strValue == "a" ) { result.insert(PT::A ); }
-			if (t[0].strValue == "hl") { result.insert(PT::HL); }
-			if (t[0].strValue == "ix") { result.insert(PT::IX); }
-			if (t[0].strValue == "iy") { result.insert(PT::IY); }
-			if (isAny(t[0].strValue, "nz","z","nc","c","po","pe","p","m"))
-				result.insert(PT::cc);
-			if (isAny(t[0].strValue, "bc","de","hl","af")) { result.insert(PT::qq); }
-			if (isAny(t[0].strValue, "bc","de","hl","sp")) { result.insert(PT::ss); }
-			if (isAny(t[0].strValue, "bc","de","ix","sp")) { result.insert(PT::pp); }
-			if (isAny(t[0].strValue, "bc","de","iy","sp")) { result.insert(PT::rr); }
+			for (const auto& [type, names] : ParamValTable) {
+				if (ranges::find(names, t[0].strValue) != names.end()) {
+					result.insert(type);
+			} }
 		}
 		else if (t.size()==2 && t[0].type == TokenType::Identifier) {
 			if (t[0].strValue == "af" && t[1].type == TokenType::Tick)
@@ -229,17 +221,22 @@ namespace /*detail*/ {
 		}
 		else {
 			if (t.front().type == TokenType::Paren0
-			&&  t.back ().type == TokenType::Paren1
-			&&  t[1].type == TokenType::Identifier) {
-				if (t.size()==3) {
-					if (t[1].strValue == "hl") { result.insert(PT::HL_d); }
+			&&  t.back ().type == TokenType::Paren1) {
+				if (t[1].type == TokenType::Identifier) {
+					if (t.size()==3) {
+						for (const auto& [type, name] : ParamValTable_d) {
+							if (name[0] == t[1].strValue) {
+								result.insert(type);
+						} }
+					}
 					if (t[1].strValue == "ix") { result.insert(PT::IX_d); }
 					if (t[1].strValue == "iy") { result.insert(PT::IY_d); }
+				} else if (holdsIntValue(t[1].type)) {
+					// parseExpression(/* ... */);
+					integer n = t[0].intValue;
+					if (0 <= n&&n <= 255  ) { result.insert(PT::n_d ); }
+					if (0 <= n&&n <= 65535) { result.insert(PT::nn_d); }
 				}
-				if (t[1].strValue == "ix" && t[2].type == TokenType::Plus)
-					result.insert(PT::IX_d);
-				if (t[1].strValue == "iy" && t[2].type == TokenType::Plus)
-					result.insert(PT::IY_d);
 			}
 		}
 		return result;
@@ -247,56 +244,28 @@ namespace /*detail*/ {
 
 	ParamVal getParamVal(ParamType type, std::span<Token> t) {
 		using PT = ParamType;
+		// Index registers
 		if (isAny(type, PT::IX_d, PT::IY_d)) {
-			if (t.size() == 3) { return {}; }
+			if (t.size() == 3) { return 0; }
 			// integer d = parseExpression(ctx, t.subspan(3, t.size()-4));
 			integer d = t[3].intValue;
 			ParamVal v = (signed)d;
 			if (!(-128 <= v&&v <= 127)) { PrintError("invalid IX/IY offset"); }
 			return v;
-		} else if (type == PT::r) {
-			if (t[0].strValue == "a") { return 0b111; }
-			if (t[0].strValue == "b") { return 0b000; }
-			if (t[0].strValue == "c") { return 0b001; }
-			if (t[0].strValue == "d") { return 0b010; }
-			if (t[0].strValue == "e") { return 0b011; }
-			if (t[0].strValue == "h") { return 0b100; }
-			if (t[0].strValue == "l") { return 0b101; }
-		} else if (type == PT::qq) {
-			if (t[0].strValue == "bc") { return 0b00; }
-			if (t[0].strValue == "de") { return 0b01; }
-			if (t[0].strValue == "hl") { return 0b10; }
-			if (t[0].strValue == "af") { return 0b11; }
-		} else if (type == PT::ss) {
-			if (t[0].strValue == "bc") { return 0b00; }
-			if (t[0].strValue == "de") { return 0b01; }
-			if (t[0].strValue == "hl") { return 0b10; }
-			if (t[0].strValue == "sp") { return 0b11; }
-		} else if (type == PT::pp) {
-			if (t[0].strValue == "bc") { return 0b00; }
-			if (t[0].strValue == "de") { return 0b01; }
-			if (t[0].strValue == "ix") { return 0b10; }
-			if (t[0].strValue == "sp") { return 0b11; }
-		} else if (type == PT::rr) {
-			if (t[0].strValue == "bc") { return 0b00; }
-			if (t[0].strValue == "de") { return 0b01; }
-			if (t[0].strValue == "iy") { return 0b10; }
-			if (t[0].strValue == "sp") { return 0b11; }
-		} else if (type == PT::cc) {
-			if (t[0].strValue == "nz") { return 0b000; }
-			if (t[0].strValue == "z" ) { return 0b001; }
-			if (t[0].strValue == "nc") { return 0b010; }
-			if (t[0].strValue == "c" ) { return 0b011; }
-			if (t[0].strValue == "po") { return 0b100; }
-			if (t[0].strValue == "pe") { return 0b101; }
-			if (t[0].strValue == "p" ) { return 0b110; }
-			if (t[0].strValue == "m" ) { return 0b111; }
 		}
+		// Number parameters
 		else if (isAny(type, PT::n, PT::nn, PT::d, PT::b, PT::e,
-		/*                */ PT::IMn, PT::RSTn)) {
+		/*   */  PT::nn_d, PT::n_d, PT::IMn, PT::RSTn)) {
 			return t[0].intValue;
 		}
-		return {}; // value doesn't matter
+		// for group ParamTypes, the index in the vector is the ParamVal
+		if (ParamValTable.contains(type)) {
+			const auto& arr = ParamValTable.at(type);
+			auto it = ranges::find(arr, t[0].strValue);
+			if (it != arr.end())
+				return std::distance(arr.begin(), it);
+		}
+		return {};
 	}
 
 	
