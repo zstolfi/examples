@@ -89,7 +89,10 @@ auto parse(std::vector<TokenArray>& lines) {
 		std::variant<Statement, Data>
 	> statementQueue;
 
+	int lineCount = 0;
 	for (TokenArray& line : lines) {
+		SetPrintLine(++lineCount);
+
 		if (line[0].type == TokenType::Directive) {
 			if (isAny(line[0].strValue, "org","origin")) {
 				ctx.progCounter = parseExpression(ctx, {++line.begin(), line.end()});
@@ -154,11 +157,14 @@ auto parse(std::vector<TokenArray>& lines) {
 			}
 		}
 	}
+	UnsetPrintLine();
 
 	PrintStatus("START\n");
 
 	// pass 2: evaluate all statements
+	lineCount = 0;
 	for (; !statementQueue.empty(); statementQueue.pop()) {
+		SetPrintLine(++lineCount);
 		auto i = statementQueue.front();
 		
 		std::vector<std::byte> bytes;
@@ -175,6 +181,7 @@ auto parse(std::vector<TokenArray>& lines) {
 
 		result.insert(result.end(), bytes.begin(), bytes.end());
 	}
+	UnsetPrintLine();
 	PrintStatus("FINISH\n");
 
 	return result;

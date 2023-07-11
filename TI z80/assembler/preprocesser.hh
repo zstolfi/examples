@@ -11,7 +11,8 @@ namespace /*detail*/ {
 
 		int c = is.get();
 		if (c == '\n') { row++, col=1; } else { col++; }
-		if (c == EOF) { eofReached = true; }
+		SetPrintLine(col);
+		if (c == EOF) { eofReached = true; UnsetPrintLine(); }
 		return c;
 	}
 

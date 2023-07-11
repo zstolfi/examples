@@ -104,9 +104,13 @@ TokenArray lexLine(Line& line) {
 auto lex(std::vector<Line>& lines) {
 	std::vector<TokenArray> result {};
 
-	for (auto it=lines.begin(); it!=lines.end(); ++it)
+	int lineCount = 0;
+	for (auto it=lines.begin(); it!=lines.end(); ++it) {
+		SetPrintLine(++lineCount);
 		if (!ranges::all_of(it->text, isWhitespace))
 			result.push_back(lexLine(*it));
+	}
+	UnsetPrintLine();
 
 	return result;
 }

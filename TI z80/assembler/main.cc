@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 	auto args = Arguments(argc, argv);
 	auto& source = args.getSource();
 	auto& output = args.getOutput();
-#ifdef WIN32
+#ifdef _WIN32
 	if (!args.hasOutput) { PrintWarning("0x0a will output incorrectly on Windows\n"); }
 #endif
 

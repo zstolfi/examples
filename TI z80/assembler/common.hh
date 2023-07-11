@@ -129,6 +129,17 @@ char toUpper(char c) { return isLower(c) ? c + ('A'-'a') : c; }
 #define DEBUG(msg) do {} while(0)
 // #define DEBUG(msg)    do {std::cout << msg; } while(0)
 
-#define  PrintStatus(msg) do { std::cerr /*           */ << msg;          } while(0)
-#define PrintWarning(msg) do { std::cerr << "Warning:\t" << msg;          } while(0)
-#define   PrintError(msg) do { std::cerr << "Error:  \t" << msg; exit(1); } while(0)
+int ErrorLineCount = -1;
+void SetPrintLine(int ln) { ErrorLineCount = ln; }
+void UnsetPrintLine()     { ErrorLineCount = -1; }
+
+#define PrintWithLines(msg) do {                                      \
+    if (ErrorLineCount > 0)                                           \
+        std::cerr << (msg) << "\tNear line: " << ErrorLineCount << "\n"; \
+    else                                                              \
+        std::cerr << (msg);                                           \
+} while (0)
+
+#define  PrintStatus(msg) do { std::cerr << msg;                                        } while (0)
+#define PrintWarning(msg) do { std::cerr << "Warning:\t"; PrintWithLines(msg);          } while (0)
+#define   PrintError(msg) do { std::cerr << "Error:  \t"; PrintWithLines(msg); exit(1); } while (0)
