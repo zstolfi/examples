@@ -205,18 +205,20 @@ namespace /*detail*/ {
 	std::set<ParamType> getParamTypes(std::span<Token> t) {
 		std::set<ParamType> result {};
 		using PT = ParamType;
+		// registers, or condintions
 		if (t.size()==1 && t[0].type == TokenType::Identifier) {
 			for (const auto& [type, names] : ParamValTable) {
 				if (ranges::find(names, t[0].strValue) != names.end()) {
 					result.insert(type);
 			} }
 		}
+		// AF`
 		else if (t.size()==2 && t[0].type == TokenType::Identifier) {
 			if (t[0].strValue == "af" && t[1].type == TokenType::Tick)
 				result.insert(PT::AF_p);
 		}
+		// numbers, labels, veriables
 		else if (t.size()==1 && holdsIntValue(t[0].type)) {
-			// integer n = parseExpression(/* ... */); TODO
 			integer n = t[0].intValue;
 			if (0 <= n&&n <= 7    ) { result.insert(PT::b ); }
 			if (0 <= n&&n <= 255  ) { result.insert(PT::n ); }
@@ -226,24 +228,26 @@ namespace /*detail*/ {
 			if (0 <= n&&n <= 3) { result.insert(PT::IMn); }
 			if (n<64 && n%8 == 0) { result.insert(PT::RSTn); }
 		}
-		else {
-			if (t.front().type == TokenType::Paren0
-			&&  t.back ().type == TokenType::Paren1) {
-				if (t[1].type == TokenType::Identifier) {
-					if (t.size()==3) {
-						for (const auto& [type, name] : ParamValTable_d) {
-							if (name[0] == t[1].strValue) {
-								result.insert(type);
-						} }
-					}
-					if (t[1].strValue == "ix") { result.insert(PT::IX_d); }
-					if (t[1].strValue == "iy") { result.insert(PT::IY_d); }
-				} else if (holdsIntValue(t[1].type)) {
-					// parseExpression(/* ... */);
-					integer n = t[0].intValue;
-					if (0 <= n&&n <= 255  ) { result.insert(PT::n_d ); }
-					if (0 <= n&&n <= 65535) { result.insert(PT::nn_d); }
+		// indirection
+		else if (t.front().type == TokenType::Paren0
+		/**/ &&  t.back ().type == TokenType::Paren1) {
+			// (IX), (DE), (C), etc...
+			if (t[1].type == TokenType::Identifier) {
+				if (t.size()==3) {
+					for (const auto& [type, name] : ParamValTable_d) {
+						if (name[0] == t[1].strValue) {
+							result.insert(type);
+					} }
 				}
+				// (IX+49), (IY), (IY-100), ...
+				if (t[1].strValue == "ix") { result.insert(PT::IX_d); }
+				if (t[1].strValue == "iy") { result.insert(PT::IY_d); }
+			}
+			// (0), ($8002), ...
+			else if (holdsIntValue(t[1].type)) {
+				integer n = t[0].intValue;
+				if (0 <= n&&n <= 255  ) { result.insert(PT::n_d ); }
+				if (0 <= n&&n <= 65535) { result.insert(PT::nn_d); }
 			}
 		}
 		return result;

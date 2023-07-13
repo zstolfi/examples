@@ -69,7 +69,6 @@ int main(int argc, char* argv[]) {
 
 	/* assemble */
 	std::vector<std::byte> byteCode = parse(statements); // evaluate variables, and look up op-codes
-	output << byteCode; return 0;
 
 	// Output .8xp file    (http://merthsoft.com/linkguide/ti83+/fformat.html)
 	output << Bytes<11>("**TI83F*\x1A\x0A");

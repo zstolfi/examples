@@ -9,14 +9,15 @@ enum struct ParamType { none, _ = none,
 	BC, DE, AF,       
 	I, R, SP,         
 	HL_d, IX_d, IY_d, // indirection
-	IX_q, IY_q,       //     q = no offet
+	IX_q, IY_q,       // (q = no offet)
 	BC_d, DE_d, SP_d, 
 	nn_d, n_d, C_d,   
 	r,                //  8-bit reg. groups
 	qq, ss, pp, rr,   // 16-bit reg. groups
 	n, nn, d, b, e,   // number types
 	cc, JRcc,         // conditions
-	AF_p, IMn, RSTn,  // sporadic few
+	AF_p, IMn, RSTn,  // misc.
+	lbl,              
 };
 using ParamVal = int;
 
@@ -46,7 +47,7 @@ static const std::map<
 	{A,{"a"}}, {I,{"i"}}, {R,{"r"}}, {SP,{"sp"}},
 	{HL,{"hl"}}, {IX,{"ix"}}, {IY,{"iy"}},
 	{BC,{"bc"}}, {DE,{"de"}}, {AF,{"af"}},
-	//     order very much matters
+	//     order very matters on the vectors
 	{r   , {"b","c","d","e","h","l"," ","a"}},
 	{qq  , {"bc","de","hl","af"}},
 	{ss  , {"bc","de","hl","sp"}},
@@ -97,7 +98,7 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"ld"  }, { IX  , nn_d, 4, BV(  , nn, 0xDD, 0x2A, nn, nn>>8      ) }},
 	{{"ld"  }, { IY  , nn_d, 4, BV(  , nn, 0xFD, 0x2A, nn, nn>>8      ) }},
 	{{"ld"  }, { nn_d, HL  , 3, BV(nn,   , 0x22, nn, nn>>8            ) }},
-	{{"ld"  }, { nn_d, ss  , 3, BV(nn, ss, 0xED, 0x43|ss<<4, nn, nn>>8) }},
+	{{"ld"  }, { nn_d, ss  , 4, BV(nn, ss, 0xED, 0x43|ss<<4, nn, nn>>8) }},
 	{{"ld"  }, { nn_d, IX  , 4, BV(nn,   , 0xDD, 0x22, nn, nn>>8      ) }},
 	{{"ld"  }, { nn_d, IY  , 4, BV(nn,   , 0xFD, 0x22, nn, nn>>8      ) }},
 	{{"ld"  }, { SP  , HL  , 1, BV(  ,   , 0xF9                       ) }},
@@ -128,8 +129,8 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"add" }, { A   , r   , 1, BV(  , r , 0x80|r       ) }},
 	{{"add" }, { A   , n   , 2, BV(  , n , 0xC6, n      ) }},
 	{{"add" }, { A   , HL_d, 1, BV(  ,   , 0x86         ) }},
-	{{"add" }, { A   , IX_d, 1, BV(  , d , 0xDD, 0x86, d) }},
-	{{"add" }, { A   , IY_d, 1, BV(  , d , 0xFD, 0x86, d) }},
+	{{"add" }, { A   , IX_d, 3, BV(  , d , 0xDD, 0x86, d) }},
+	{{"add" }, { A   , IY_d, 3, BV(  , d , 0xFD, 0x86, d) }},
 	{{"adc" }, { A   , r   , 1, BV(  , r , 0x88|r       ) }},
 	{{"adc" }, { A   , n   , 2, BV(  , n , 0xCE, n      ) }},
 	{{"adc" }, { A   , HL_d, 1, BV(  ,   , 0x8E         ) }},
@@ -167,8 +168,8 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"cp"  }, { IY_d, _   , 3, BV(d ,   , 0xFD, 0xBE, d) }},
 	{{"inc" }, { r   , _   , 1, BV(r ,   , 0x04|r<<3    ) }},
 	{{"inc" }, { HL_d, _   , 1, BV(  ,   , 0x34         ) }},
-	{{"inc" }, { IX_d, _   , 3, BV(d ,   , 0xDD, 0x34   ) }},
-	{{"inc" }, { IY_d, _   , 3, BV(d ,   , 0xFD, 0x34   ) }},
+	{{"inc" }, { IX_d, _   , 2, BV(d ,   , 0xDD, 0x34   ) }},
+	{{"inc" }, { IY_d, _   , 2, BV(d ,   , 0xFD, 0x34   ) }},
 	{{"dec" }, { r   , _   , 1, BV(r ,   , 0x05|r<<3    ) }},
 	{{"dec" }, { HL_d, _   , 1, BV(  ,   , 0x35         ) }},
 	{{"dec" }, { IX_d, _   , 3, BV(d ,   , 0xDD, 0x35, d) }},
