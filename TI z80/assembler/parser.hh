@@ -93,6 +93,7 @@ auto parse(std::vector<TokenArray>& lines) {
 	for (TokenArray& line : lines) {
 		SetPrintLine(++lineCount);
 
+		// directives
 		if (line[0].type == TokenType::Directive) {
 			if (isAny(line[0].strValue, "org","origin")) {
 				ctx.progCounter = parseExpression(ctx, {++line.begin(), line.end()});
@@ -118,9 +119,22 @@ auto parse(std::vector<TokenArray>& lines) {
 				}
 				continue;
 			}
+			if (isAny(line[0].strValue, "ds","space")) {
+				auto params = splitArgs({++line.begin(), line.end()});
+				std::size_t len = 0; std::byte b {0};
+				if (params.size() >= 1) { len = params[0]; }
+				if (params.size() >= 2) { b = std::byte(params[1]); }
+				if (params.size() >= 3) { PrintWarning("too many .ds arguments"); }
+				if (params.size() == 0) { PrintWarning(".ds arguments expected"); }
+				auto b = std::vector<std::bytes>(len, b);
+				statementQueue.push(b);
+				ctx.progCounter += len;
+				continue;
+			}
 		}
 
 		if (line[0].type == TokenType::Identifier) {
+			// instruction
 			if (OpCodeTable.contains(line[0].strValue)) {
 				auto args = splitArgs({++line.begin(), line.end()});
 				std::set<ParamType> paramTypes0, paramTypes1;
@@ -142,7 +156,7 @@ auto parse(std::vector<TokenArray>& lines) {
 				auto it = std::find_if(begin, end,
 					[&](auto pair) { auto op = pair.second;
 						return paramTypes0.contains(op.pt0)
-						    && paramTypes1.contains(op.pt1);
+						&&     paramTypes1.contains(op.pt1);
 					}
 				);
 				if (it == end) { PrintError("unknown opcode arguments"); }
@@ -159,7 +173,6 @@ auto parse(std::vector<TokenArray>& lines) {
 	}
 	UnsetPrintLine();
 
-	PrintStatus("START\n");
 
 	// pass 2: evaluate all statements
 	lineCount = 0;
@@ -182,7 +195,6 @@ auto parse(std::vector<TokenArray>& lines) {
 		result.insert(result.end(), bytes.begin(), bytes.end());
 	}
 	UnsetPrintLine();
-	PrintStatus("FINISH\n");
 
 	return result;
 }
