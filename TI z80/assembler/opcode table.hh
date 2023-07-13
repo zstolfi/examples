@@ -65,12 +65,14 @@ ParamValTable_d {
 
 constexpr bool validNumberParam(ParamType type, integer i) {
 	switch (type) {
-		case b   : if(0 <= i&&i <= 7    )          { return true; } break;
 		case n   : if(0 <= i&&i <= 255  )          { return true; } break;
+		case n_d : if(0 <= i&&i <= 255  )          { return true; } break;
 		case nn  : if(0 <= i&&i <= 65535)          { return true; } break;
+		case nn_d: if(0 <= i&&i <= 65535)          { return true; } break;
+		case b   : if(0 <= i&&i <= 7    )          { return true; } break;
 		case d   : if(-128 <= (signed)i&&i <= 127) { return true; } break;
 		case e   : if(-126 <= (signed)i&&i <= 129) { return true; } break;
-		case IMn : if(0 <= i&&i <= 3)              { return true; } break;
+		case IMn : if(0 <= i&&i < 3)               { return true; } break;
 		case RSTn: if(i<64 && i%8 == 0)            { return true; } break;
 		default : return {};
 	}
