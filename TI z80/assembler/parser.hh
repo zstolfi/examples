@@ -33,7 +33,7 @@ namespace /*detail*/ {
 	// All possible ways a parameter can be interpreted
 	// i.e. 128 => {n, nn, e}
 	//      A   => {A, r}
-	ParamVal getParamVal(ParamType, std::span<Token>);
+	ParamVal getParamVal(Context&, ParamType, std::span<Token>);
 
 
 	using Grouping = std::vector<std::size_t>;
@@ -174,8 +174,8 @@ auto parse(std::vector<TokenArray>& lines) {
 		// OpCode on the queue
 		if (auto* statement = std::get_if<Statement>(&i)) {
 			ctx.progCounter = statement->address;
-			ParamVal p0 = getParamVal(statement->op.pt0, statement->param0);
-			ParamVal p1 = getParamVal(statement->op.pt1, statement->param1);
+			ParamVal p0 = getParamVal(ctx, statement->op.pt0, statement->param0);
+			ParamVal p1 = getParamVal(ctx, statement->op.pt1, statement->param1);
 			bytes = statement->op(p0,p1);
 		}
 
@@ -207,26 +207,14 @@ namespace /*detail*/ {
 		using PT = ParamType;
 		// registers, or condintions
 		if (t.size()==1 && t[0].type == TokenType::Identifier) {
-			for (const auto& [type, names] : ParamValTable) {
-				if (ranges::find(names, t[0].strValue) != names.end()) {
+			for (const auto& [type, names] : ParamValTable)
+				if (ranges::find(names, t[0].strValue) != names.end())
 					result.insert(type);
-			} }
 		}
 		// AF`
 		else if (t.size()==2 && t[0].type == TokenType::Identifier) {
 			if (t[0].strValue == "af" && t[1].type == TokenType::Tick)
 				result.insert(PT::AF_p);
-		}
-		// numbers, labels, veriables
-		else if (t.size()==1 && holdsIntValue(t[0].type)) {
-			integer n = t[0].intValue;
-			if (0 <= n&&n <= 7    ) { result.insert(PT::b ); }
-			if (0 <= n&&n <= 255  ) { result.insert(PT::n ); }
-			if (0 <= n&&n <= 65535) { result.insert(PT::nn); }
-			if (-128 <= (signed)n&&n <= 127) { result.insert(PT::d); }
-			if (-126 <= (signed)n&&n <= 129) { result.insert(PT::e); }
-			if (0 <= n&&n <= 3) { result.insert(PT::IMn); }
-			if (n<64 && n%8 == 0) { result.insert(PT::RSTn); }
 		}
 		// indirection
 		else if (t.front().type == TokenType::Paren0
@@ -234,40 +222,45 @@ namespace /*detail*/ {
 			// (IX), (DE), (C), etc...
 			if (t[1].type == TokenType::Identifier) {
 				if (t.size()==3) {
-					for (const auto& [type, name] : ParamValTable_d) {
-						if (name[0] == t[1].strValue) {
+					for (const auto& [type, name] : ParamValTable_d)
+						if (name[0] == t[1].strValue)
 							result.insert(type);
-					} }
 				}
 				// (IX+49), (IY), (IY-100), ...
-				if (t[1].strValue == "ix") { result.insert(PT::IX_d); }
-				if (t[1].strValue == "iy") { result.insert(PT::IY_d); }
+				if (t[1].strValue == "ix") result.insert(PT::IX_d);
+				if (t[1].strValue == "iy") result.insert(PT::IY_d);
 			}
 			// (0), ($8002), ...
-			else if (holdsIntValue(t[1].type)) {
-				integer n = t[0].intValue;
-				if (0 <= n&&n <= 255  ) { result.insert(PT::n_d ); }
-				if (0 <= n&&n <= 65535) { result.insert(PT::nn_d); }
-			}
+			else if (holdsIntValue(t[1].type))
+				result.insert({PT::n_d, PT::nn_d});
+		}
+		// numbers, labels, veriables
+		else if (t.size()==1 && holdsIntValue(t[0].type)) {
+			result.insert({PT::n, PT::nn, PT::d, PT::b, PT::e, PT::IMn, PT::RSTn});
 		}
 		return result;
 	}
 
-	ParamVal getParamVal(ParamType type, std::span<Token> t) {
+	ParamVal getParamVal(Context& ctx, ParamType type, std::span<Token> t) {
 		using PT = ParamType;
 		// Index registers
 		if (isAny(type, PT::IX_d, PT::IY_d)) {
 			if (t.size() == 3) { return 0; }
-			// integer d = parseExpression(ctx, t.subspan(3, t.size()-4));
-			integer d = t[3].intValue;
-			ParamVal v = (signed)d;
-			if (!(-128 <= v&&v <= 127)) { PrintError("invalid IX/IY offset"); }
-			return v;
+			if (!isAny(t[2].type, TokenType::Plus, TokenType::Minus))
+				PrintError("plus or minus expected in IX/IY");
+			int sign = t[2].type == TokenType::Plus ? 1 : -1;
+
+			integer n = parseExpression(ctx, t.subspan(3, t.size()-4));
+			ParamVal d = sign * (signed)n;
+			if (!(-128 <= d&&d <= 127)) { PrintError("out of bounds IX/IY offset"); }
+			return d;
 		}
 		// Number parameters
 		else if (isAny(type, PT::n, PT::nn, PT::d, PT::b, PT::e,
-		/*   */  PT::nn_d, PT::n_d, PT::IMn, PT::RSTn)) {
-			return t[0].intValue;
+		/*                */ PT::nn_d, PT::n_d, PT::IMn, PT::RSTn)) {
+			integer n = parseExpression(ctx, t);
+			if (!validNumberParam(type, n)) { PrintError("out of bounds number"); }
+			return n;
 		}
 		// for group ParamTypes, the index in the vector is the ParamVal
 		if (ParamValTable.contains(type)) {
