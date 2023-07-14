@@ -26,7 +26,7 @@ namespace OP {
 namespace /*detail*/ {
 	struct Context {
 		std::size_t progCounter = 0;
-		/* store variables here */
+		std::map<std::string,integer> vars;
 	};
 
 	std::set<ParamType> getParamTypes(std::span<Token>);
@@ -121,21 +121,35 @@ auto parse(std::vector<TokenArray>& lines) {
 			}
 			if (isAny(line[0].strValue, "ds","space")) {
 				auto params = splitArgs({++line.begin(), line.end()});
-				std::size_t len = 0; std::byte b {0};
-				if (params.size() >= 1) { len = params[0]; }
-				if (params.size() >= 2) { b = std::byte(params[1]); }
+				integer len=0, dat=0;
+				if (params.size() >= 1) { len = parseExpression(ctx, params[0]); }
+				if (params.size() >= 2) { dat = parseExpression(ctx, params[1]); }
 				if (params.size() >= 3) { PrintWarning("too many .ds arguments"); }
 				if (params.size() == 0) { PrintWarning(".ds arguments expected"); }
-				auto b = std::vector<std::bytes>(len, b);
+				auto b = std::vector<std::byte>(len, std::byte(dat));
 				statementQueue.push(b);
 				ctx.progCounter += len;
 				continue;
 			}
+			if (isAny(line[0].strValue, "end")) { break; }
+
+			PrintWarning("unknown directive");
 		}
 
-		if (line[0].type == TokenType::Identifier) {
+		std::size_t i=0;
+
+		if (line[i].type == TokenType::Identifier) {
+			// assignment
+			if (line.size()-i >= 3 && line[i+1].type == TokenType::Assign) {
+				auto varName = line[i].strValue;
+				if (ctx.vars.contains(varName))
+					PrintError("redeclared variable: " << varName);
+				std::span s {std::next(line.begin(),2), line.end()};
+				ctx.vars[varName] = parseExpression(ctx, s);
+			}
+
 			// instruction
-			if (OpCodeTable.contains(line[0].strValue)) {
+			if (OpCodeTable.contains(line[i].strValue)) {
 				auto args = splitArgs({++line.begin(), line.end()});
 				std::set<ParamType> paramTypes0, paramTypes1;
 				paramTypes0 = paramTypes1 = { ParamType::none };
@@ -150,9 +164,9 @@ auto parse(std::vector<TokenArray>& lines) {
 				PrintStatus(" } {");
 				for (auto p : paramTypes1)
 					PrintStatus(" " << (int)p);
-				PrintStatus(" }\t");
+				PrintStatus(" }\t" << line[i].strValue << "\t");
 
-				auto [begin,end] = OpCodeTable.equal_range(line[0].strValue);
+				auto [begin,end] = OpCodeTable.equal_range(line[i].strValue);
 				auto it = std::find_if(begin, end,
 					[&](auto pair) { auto op = pair.second;
 						return paramTypes0.contains(op.pt0)
@@ -247,8 +261,9 @@ namespace /*detail*/ {
 				result.insert({PT::n_d, PT::nn_d});
 		}
 		// numbers, labels, veriables
-		else if (t.size()==1 && holdsIntValue(t[0].type)) {
-			result.insert({PT::n, PT::nn, PT::d, PT::b, PT::e, PT::IMn, PT::RSTn});
+		if (holdsIntValue(t[0].type)) {
+			for (auto& [type, _ ] : NumberParamTypes)
+				result.insert(type);
 		}
 		return result;
 	}
@@ -313,10 +328,17 @@ namespace /*detail*/ {
 				expr.evaluated[i0] = parenValue;
 				expr.evaluated[i1] = parenValue;
 			} else {
-				if (tokens[i].type == TokenType::Integer)
-					expr.evaluated[i] = tokens[i].intValue;
-				else if (tokens[i].type == TokenType::Dollar)
-					expr.evaluated[i] = ctx.progCounter;
+				expr.evaluated[i] = [&](Token& t) -> integer {
+					if (t.type == TokenType::Integer) { return t.intValue; }
+					if (t.type == TokenType::Dollar ) { return ctx.progCounter; }
+					if (t.type == TokenType::Identifier) {
+						if (!ctx.vars.contains(t.strValue))
+							PrintError("undeclared variable: " << t.strValue);
+						return ctx.vars.at(t.strValue);
+					}
+					return {};
+				}
+				(tokens[i]);
 			}
 		});
 
@@ -326,13 +348,12 @@ namespace /*detail*/ {
 		// them. If I'm revisiting this code in the future of
 		// C++26, I'll replace with an 'expansion statement'.
 		constexpr auto Size = std::tuple_size_v<decltype(OP::Order)>;
-		[&]<std::size_t...I>(std::index_sequence<I...>) {
-			(
-				applyOperations
-				<std::get<I>(OP::Order).first>
-				(expr, std::get<I>(OP::Order).second)
-			, ... );
-		}
+		[&]<std::size_t...I>(std::index_sequence<I...>) { (
+			applyOperations
+			<std::get<I>(OP::Order).first>
+			(expr, std::get<I>(OP::Order).second)
+			, ...
+		); }
 		(std::make_index_sequence<Size>{});
 
 		return expr.evaluated[0];

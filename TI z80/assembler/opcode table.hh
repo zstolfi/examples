@@ -6,7 +6,7 @@
 // Z80 CPU User Manual pg. 39
 enum struct ParamType { none, _ = none,
 	A, HL, IX, IY,    // exaclt register names
-	BC, DE, AF,       
+	BC, DE, AF, F,    
 	I, R, SP,         
 	HL_d, IX_d, IY_d, // indirection
 	IX_q, IY_q,       // (q = no offet)
@@ -47,7 +47,7 @@ static const std::map<
 	{HL,{"hl"}}, {IX,{"ix"}}, {IY,{"iy"}},
 	{BC,{"bc"}}, {DE,{"de"}}, {AF,{"af"}},
 	//     order very matters on the vectors
-	{r   , {"b","c","d","e","h","l"," ","a"}},
+	{r   , {"b","c","d","e","h","l","","a"}},
 	{qq  , {"bc","de","hl","af"}},
 	{ss  , {"bc","de","hl","sp"}},
 	{pp  , {"bc","de","ix","sp"}},
@@ -63,20 +63,25 @@ ParamValTable_d {
 	{C_d , {"c" }}//,
 };
 
-constexpr bool validNumberParam(ParamType type, integer i) {
-	switch (type) {
-		case n   : if(0 <= i&&i <= 255  )          { return true; } break;
-		case n_d : if(0 <= i&&i <= 255  )          { return true; } break;
-		case nn  : if(0 <= i&&i <= 65535)          { return true; } break;
-		case nn_d: if(0 <= i&&i <= 65535)          { return true; } break;
-		case b   : if(0 <= i&&i <= 7    )          { return true; } break;
-		case d   : if(-128 <= (signed)i&&i <= 127) { return true; } break;
-		case e   : if(-126 <= (signed)i&&i <= 129) { return true; } break;
-		case IMn : if(0 <= i&&i < 3)               { return true; } break;
-		case RSTn: if(i<64 && i%8 == 0)            { return true; } break;
-		default : return {};
-	}
-	return false;
+static const std::map<
+	ParamType,
+	bool(*)(integer)
+> NumberParamTypes {
+	{n   , [](integer i) { return 0 <= i&&i <= 255;           } },
+	{n_d , [](integer i) { return 0 <= i&&i <= 255;           } },
+	{nn  , [](integer i) { return 0 <= i&&i <= 65535;         } },
+	{nn_d, [](integer i) { return 0 <= i&&i <= 65535;         } },
+	{b   , [](integer i) { return 0 <= i&&i <= 7;             } },
+	{d   , [](integer i) { return -128 <= (signed)i&&i <= 127;} },
+	{e   , [](integer i) { return -126 <= (signed)i&&i <= 129;} },
+	{IMn , [](integer i) { return 0 <= i&&i < 3;              } },
+	{RSTn, [](integer i) { return i<64 && i%8 == 0;           } },
+	{n_0 , [](integer i) { return i == 0;                     } }//,
+};
+
+const bool validNumberParam(ParamType type, integer i) {
+	if (!NumberParamTypes.contains(type)) { return {}; }
+	return NumberParamTypes.at(type)(i);
 }
 
 // Z80 CPU User Manual pg. 69
@@ -280,12 +285,15 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	// Input and Output Group
 	{{"in"  }, { A   , n_d , 2, BV(  , n , 0xDB, n        ) }},
 	{{"in"  }, { r   , C_d , 2, BV(r ,   , 0xED, 0x40|r<<3) }},
+	{{"in"  }, { F   , C_d , 2, BV(  ,   , 0xED, 0x70     ) }}, // undocumented
+	{{"in"  }, { C_d , _   , 2, BV(  ,   , 0xED, 0x70     ) }}, // undocumented
 	{{"ini" }, { _   , _   , 2, BV(  ,   , 0xED, 0xA2     ) }},
 	{{"inir"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB2     ) }},
 	{{"ind" }, { _   , _   , 2, BV(  ,   , 0xED, 0xAA     ) }},
 	{{"indr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xBA     ) }},
 	{{"out" }, { n_d , A   , 2, BV(n ,   , 0xD3, n        ) }},
 	{{"out" }, { C_d , r   , 2, BV(  , r , 0xED, 0x41|r<<3) }},
+	{{"out" }, { C_d , n_0 , 2, BV(  ,   , 0xED, 0x71     ) }}, // undocumented
 	{{"outi"}, { _   , _   , 2, BV(  ,   , 0xED, 0xA3     ) }},
 	{{"outr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB3     ) }},
 	{{"outd"}, { _   , _   , 2, BV(  ,   , 0xED, 0xAB     ) }},

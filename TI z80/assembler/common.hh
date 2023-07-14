@@ -64,7 +64,7 @@ using TokenArray = std::vector<Token>;
 
 bool holdsIntValue(TokenType t) {
 	using enum TokenType;
-	return isAny(t, Identifier, Integer, Paren0, Paren1);
+	return isAny(t, Identifier, Integer, Dollar, Paren0, Paren1);
 }
 
 bool holdsStrValue(TokenType t) {
@@ -133,12 +133,11 @@ int ErrorLineCount = -1;
 void SetPrintLine(int ln) { ErrorLineCount = ln; }
 void UnsetPrintLine()     { ErrorLineCount = -1; }
 
-#define PrintWithLines(msg) do {                                      \
-    if (ErrorLineCount > 0)                                           \
-        std::cerr << (msg) << "\tNear line: " << ErrorLineCount << "\n"; \
-    else                                                              \
-        std::cerr << (msg);                                           \
-} while (0)
+#define PrintWithLines(msg)                                            \
+    if (ErrorLineCount > 0)                                            \
+        std::cerr << msg << "\tNear line: " << ErrorLineCount << "\n"; \
+    else                                                               \
+        std::cerr << msg;                                               
 
 #define  PrintStatus(msg) do { std::cerr << msg;                                        } while (0)
 #define PrintWarning(msg) do { std::cerr << "Warning:\t"; PrintWithLines(msg);          } while (0)
