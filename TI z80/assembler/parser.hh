@@ -142,13 +142,15 @@ auto parse(std::vector<TokenArray>& lines) {
 		}
 
 		std::size_t i=0;
-		// // labels
-		// while (line.size()-i >= 2
-		// &&     line[i+0].type == TokenType::Identifier
-		// &&     line[i+1].type == TokenType::Colon) {
-		// 	ctx.setVariable(line[i].strValue, ctx.progCounter);
-		// 	i += 2;
-		// }
+		// labels
+		while (i+2 <= line.size()
+		&&     line[i+0].type == TokenType::Identifier
+		&&     line[i+1].type == TokenType::Colon) {
+			ctx.setVariable(line[i].strValue, ctx.progCounter);
+			i += 2;
+		}
+
+		if (i >= line.size()) { continue; }
 
 		if (line[i].type == TokenType::Identifier) {
 			// assignment

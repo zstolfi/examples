@@ -114,8 +114,8 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"ld"  }, { BC_d, A   , 1, BV(  ,   , 0x02              ) }},
 	{{"ld"  }, { DE_d, A   , 1, BV(  ,   , 0x12              ) }},
 	{{"ld"  }, { nn_d, A   , 3, BV(nn,   , 0x32, nn, nn>>8   ) }},
-	{{"ld"  }, { A   , I   , 2, BV(  ,   , 0xED, 0x57        ) }}, // not recognized
-	{{"ld"  }, { A   , R   , 2, BV(  ,   , 0xED, 0x5F        ) }}, // not recognized
+	{{"ld"  }, { A   , I   , 2, BV(  ,   , 0xED, 0x57        ) }},
+	{{"ld"  }, { A   , R   , 2, BV(  ,   , 0xED, 0x5F        ) }},
 	{{"ld"  }, { I   , A   , 2, BV(  ,   , 0xED, 0x47        ) }},
 	{{"ld"  }, { R   , A   , 2, BV(  ,   , 0xED, 0x4F        ) }},
 	// 16-Bit Load Group
