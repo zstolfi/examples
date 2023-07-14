@@ -26,7 +26,9 @@ namespace OP {
 namespace /*detail*/ {
 	struct Context {
 		std::size_t progCounter = 0;
-		std::map<std::string,integer> vars;
+		std::map<std::string_view,integer> vars;
+		void setVariable(std::string_view, integer);
+		integer getVariable(std::string_view);
 	};
 
 	std::set<ParamType> getParamTypes(std::span<Token>);
@@ -77,6 +79,8 @@ auto parse(std::vector<TokenArray>& lines) {
 
 	// pass 1: evaluate all label addresses and put them into context
 	//         also queue every opcode / param (and reserve its size)
+	PrintStatus("Pass 1:\n");
+
 	struct Statement {
 		std::size_t address;
 		const OpCode& op;
@@ -92,6 +96,7 @@ auto parse(std::vector<TokenArray>& lines) {
 	int lineCount = 0;
 	for (TokenArray& line : lines) {
 		SetPrintLine(++lineCount);
+		PrintStatus(lineCount << "\t");
 
 		// directives
 		if (line[0].type == TokenType::Directive) {
@@ -99,7 +104,7 @@ auto parse(std::vector<TokenArray>& lines) {
 				ctx.progCounter = parseExpression(ctx, {++line.begin(), line.end()});
 				continue;
 			}
-			if (isAny(line[0].strValue, "db","byte")) {
+			else if (isAny(line[0].strValue, "db","byte")) {
 				auto params = splitArgs({++line.begin(), line.end()});
 				for (auto param : params) {
 					integer val = parseExpression(ctx, param);
@@ -109,7 +114,7 @@ auto parse(std::vector<TokenArray>& lines) {
 				}
 				continue;
 			}
-			if (isAny(line[0].strValue, "dw","word")) {
+			else if (isAny(line[0].strValue, "dw","word")) {
 				auto params = splitArgs({++line.begin(), line.end()});
 				for (auto param : params) {
 					integer val = parseExpression(ctx, param);
@@ -119,7 +124,7 @@ auto parse(std::vector<TokenArray>& lines) {
 				}
 				continue;
 			}
-			if (isAny(line[0].strValue, "ds","space")) {
+			else if (isAny(line[0].strValue, "ds","space")) {
 				auto params = splitArgs({++line.begin(), line.end()});
 				integer len=0, dat=0;
 				if (params.size() >= 1) { len = parseExpression(ctx, params[0]); }
@@ -131,25 +136,30 @@ auto parse(std::vector<TokenArray>& lines) {
 				ctx.progCounter += len;
 				continue;
 			}
-			if (isAny(line[0].strValue, "end")) { break; }
+			else if (isAny(line[0].strValue, "end")) { break; }
 
 			PrintWarning("unknown directive");
 		}
 
 		std::size_t i=0;
+		// // labels
+		// while (line.size()-i >= 2
+		// &&     line[i+0].type == TokenType::Identifier
+		// &&     line[i+1].type == TokenType::Colon) {
+		// 	ctx.setVariable(line[i].strValue, ctx.progCounter);
+		// 	i += 2;
+		// }
 
 		if (line[i].type == TokenType::Identifier) {
 			// assignment
 			if (line.size()-i >= 3 && line[i+1].type == TokenType::Assign) {
-				auto varName = line[i].strValue;
-				if (ctx.vars.contains(varName))
-					PrintError("redeclared variable: " << varName);
+				auto& varName = line[i].strValue;
 				std::span s {std::next(line.begin(),2), line.end()};
-				ctx.vars[varName] = parseExpression(ctx, s);
+				ctx.setVariable(varName, parseExpression(ctx, s));
+				continue;
 			}
-
 			// instruction
-			if (OpCodeTable.contains(line[i].strValue)) {
+			else if (OpCodeTable.contains(line[i].strValue)) {
 				auto args = splitArgs({++line.begin(), line.end()});
 				std::set<ParamType> paramTypes0, paramTypes1;
 				paramTypes0 = paramTypes1 = { ParamType::none };
@@ -183,12 +193,15 @@ auto parse(std::vector<TokenArray>& lines) {
 				ctx.progCounter += op.size;
 				continue;
 			}
+			PrintError("unkown opcode: " << line[i].strValue);
 		}
 	}
 	UnsetPrintLine();
 
 
 	// pass 2: evaluate all statements
+	PrintStatus("Pass 2:\n");
+
 	lineCount = 0;
 	for (; !statementQueue.empty(); statementQueue.pop()) {
 		SetPrintLine(++lineCount);
@@ -214,6 +227,18 @@ auto parse(std::vector<TokenArray>& lines) {
 }
 
 namespace /*detail*/ {
+	void Context::setVariable(std::string_view name, integer val) {
+		if (vars.contains(name))
+			PrintError("redeclared variable: " << name);
+		vars[name] = val;
+	}
+
+	integer Context::getVariable(std::string_view name) {
+		if (!vars.contains(name))
+			PrintError("undeclared variable: " << name);
+		return vars.at(name);
+	}
+
 	std::vector<std::span<Token>> splitArgs(std::span<Token> tokens) {
 	// trailing commas are permitted
 		std::vector<std::span<Token>> result {};
@@ -244,7 +269,7 @@ namespace /*detail*/ {
 		}
 		// indirection
 		else if (t.front().type == TokenType::Paren0
-		/**/ &&  t.back ().type == TokenType::Paren1) {
+		&&       t.back ().type == TokenType::Paren1) {
 			// (IX), (DE), (C), etc...
 			if (t[1].type == TokenType::Identifier) {
 				if (t.size()==3) {
@@ -261,7 +286,11 @@ namespace /*detail*/ {
 				result.insert({PT::n_d, PT::nn_d});
 		}
 		// numbers, labels, veriables
-		if (holdsIntValue(t[0].type)) {
+		if (holdsIntValue(t[0].type)
+		&& !(t.front().type == TokenType::Paren0
+		||   t.back ().type == TokenType::Paren1)
+		&& !(t[0].type == TokenType::Identifier
+		&&   isRegisterName(t[0].strValue))) {
 			for (auto& [type, _ ] : NumberParamTypes)
 				result.insert(type);
 		}
@@ -283,12 +312,20 @@ namespace /*detail*/ {
 			return d;
 		}
 		// Number parameters
-		else if (isAny(type, PT::n, PT::nn, PT::d, PT::b, PT::e,
-		/*                */ PT::nn_d, PT::n_d, PT::IMn, PT::RSTn)) {
-			integer n = parseExpression(ctx, t);
+		else if (isAny(type, PT::n   , PT::nn  , PT::d   , PT::b   ,
+		/*                */ PT::n_d , PT::nn_d, PT::IMn , PT::RSTn)) {
+			ParamVal n = parseExpression(ctx, t);
 			if (!validNumberParam(type, n)) { PrintError("out of bounds number"); }
 			return n;
 		}
+		// Short Jump
+		else if (type == PT::e) {
+			integer n = parseExpression(ctx, t);
+			ParamVal e = n - ctx.progCounter;
+			if (!validNumberParam(type, e)) { PrintError("out of bounds JR offset"); }
+			return e;
+		}
+
 		// for group ParamTypes, the index in the vector is the ParamVal
 		if (ParamValTable.contains(type)) {
 			const auto& arr = ParamValTable.at(type);
@@ -329,13 +366,10 @@ namespace /*detail*/ {
 				expr.evaluated[i1] = parenValue;
 			} else {
 				expr.evaluated[i] = [&](Token& t) -> integer {
-					if (t.type == TokenType::Integer) { return t.intValue; }
-					if (t.type == TokenType::Dollar ) { return ctx.progCounter; }
-					if (t.type == TokenType::Identifier) {
-						if (!ctx.vars.contains(t.strValue))
-							PrintError("undeclared variable: " << t.strValue);
-						return ctx.vars.at(t.strValue);
-					}
+					using enum TokenType;
+					if (t.type == Integer   ) { return t.intValue; }
+					if (t.type == Dollar    ) { return ctx.progCounter; }
+					if (t.type == Identifier) { return ctx.getVariable(t.strValue); }
 					return {};
 				}
 				(tokens[i]);

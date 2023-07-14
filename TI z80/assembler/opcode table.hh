@@ -17,6 +17,7 @@ enum struct ParamType { none, _ = none,
 	n, nn, d, b, e,   // number types
 	cc, JRcc,         // conditions
 	AF_p, IMn, RSTn,  // misc.
+	n_0,              
 };
 using ParamVal = int;
 
@@ -63,23 +64,31 @@ ParamValTable_d {
 	{C_d , {"c" }}//,
 };
 
+const bool isRegisterName(std::string_view name) {
+	for (auto& [ _ , names] : ParamValTable) {
+		for (auto& n : names) {
+			if (n == name) { return true; }
+	} }
+	return false;
+}
+
 static const std::map<
 	ParamType,
-	bool(*)(integer)
+	bool(*)(ParamVal)
 > NumberParamTypes {
-	{n   , [](integer i) { return 0 <= i&&i <= 255;           } },
-	{n_d , [](integer i) { return 0 <= i&&i <= 255;           } },
-	{nn  , [](integer i) { return 0 <= i&&i <= 65535;         } },
-	{nn_d, [](integer i) { return 0 <= i&&i <= 65535;         } },
-	{b   , [](integer i) { return 0 <= i&&i <= 7;             } },
-	{d   , [](integer i) { return -128 <= (signed)i&&i <= 127;} },
-	{e   , [](integer i) { return -126 <= (signed)i&&i <= 129;} },
-	{IMn , [](integer i) { return 0 <= i&&i < 3;              } },
-	{RSTn, [](integer i) { return i<64 && i%8 == 0;           } },
-	{n_0 , [](integer i) { return i == 0;                     } }//,
+	{n   , [](ParamVal i) { return 0 <= i&&i <= 255;   } },
+	{n_d , [](ParamVal i) { return 0 <= i&&i <= 255;   } },
+	{nn  , [](ParamVal i) { return 0 <= i&&i <= 65535; } },
+	{nn_d, [](ParamVal i) { return 0 <= i&&i <= 65535; } },
+	{b   , [](ParamVal i) { return 0 <= i&&i <= 7;     } },
+	{d   , [](ParamVal i) { return -128 <= i&&i <= 127;} },
+	{e   , [](ParamVal i) { return -126 <= i&&i <= 129;} },
+	{IMn , [](ParamVal i) { return 0 <= i&&i < 3;      } },
+	{RSTn, [](ParamVal i) { return i<64 && i%8 == 0;   } },
+	{n_0 , [](ParamVal i) { return i == 0;             } }//,
 };
 
-const bool validNumberParam(ParamType type, integer i) {
+const bool validNumberParam(ParamType type, ParamVal i) {
 	if (!NumberParamTypes.contains(type)) { return {}; }
 	return NumberParamTypes.at(type)(i);
 }
@@ -105,8 +114,8 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"ld"  }, { BC_d, A   , 1, BV(  ,   , 0x02              ) }},
 	{{"ld"  }, { DE_d, A   , 1, BV(  ,   , 0x12              ) }},
 	{{"ld"  }, { nn_d, A   , 3, BV(nn,   , 0x32, nn, nn>>8   ) }},
-	{{"ld"  }, { A   , I   , 2, BV(  ,   , 0xED, 0x57        ) }},
-	{{"ld"  }, { A   , R   , 2, BV(  ,   , 0xED, 0x5F        ) }},
+	{{"ld"  }, { A   , I   , 2, BV(  ,   , 0xED, 0x57        ) }}, // not recognized
+	{{"ld"  }, { A   , R   , 2, BV(  ,   , 0xED, 0x5F        ) }}, // not recognized
 	{{"ld"  }, { I   , A   , 2, BV(  ,   , 0xED, 0x47        ) }},
 	{{"ld"  }, { R   , A   , 2, BV(  ,   , 0xED, 0x4F        ) }},
 	// 16-Bit Load Group
@@ -188,8 +197,8 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"cp"  }, { IY_d, _   , 3, BV(d ,   , 0xFD, 0xBE, d) }},
 	{{"inc" }, { r   , _   , 1, BV(r ,   , 0x04|r<<3    ) }},
 	{{"inc" }, { HL_d, _   , 1, BV(  ,   , 0x34         ) }},
-	{{"inc" }, { IX_d, _   , 2, BV(d ,   , 0xDD, 0x34   ) }},
-	{{"inc" }, { IY_d, _   , 2, BV(d ,   , 0xFD, 0x34   ) }},
+	{{"inc" }, { IX_d, _   , 3, BV(d ,   , 0xDD, 0x34, d) }},
+	{{"inc" }, { IY_d, _   , 3, BV(d ,   , 0xFD, 0x34, d) }},
 	{{"dec" }, { r   , _   , 1, BV(r ,   , 0x05|r<<3    ) }},
 	{{"dec" }, { HL_d, _   , 1, BV(  ,   , 0x35         ) }},
 	{{"dec" }, { IX_d, _   , 3, BV(d ,   , 0xDD, 0x35, d) }},
@@ -242,6 +251,10 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"sla" }, { HL_d, _   , 2, BV(  ,   , 0xCB, 0x26         ) }},
 	{{"sla" }, { IX_d, _   , 4, BV(d ,   , 0xDD, 0xCB, d, 0x26) }},
 	{{"sla" }, { IY_d, _   , 4, BV(d ,   , 0xFD, 0xCB, d, 0x26) }},
+	{{"sll" }, { r   , _   , 2, BV(r ,   , 0xCB, 0x30|r       ) }}, // undocumented
+	{{"sll" }, { HL_d, _   , 2, BV(  ,   , 0xCB, 0x36         ) }}, // undocumented
+	{{"sll" }, { IX_d, _   , 4, BV(d ,   , 0xDD, 0xCB, d, 0x36) }}, // undocumented
+	{{"sll" }, { IY_d, _   , 4, BV(d ,   , 0xFD, 0xCB, d, 0x36) }}, // undocumented
 	{{"sra" }, { r   , _   , 2, BV(r ,   , 0xCB, 0x28|r       ) }},
 	{{"sra" }, { HL_d, _   , 2, BV(  ,   , 0xCB, 0x2E         ) }},
 	{{"sra" }, { IX_d, _   , 4, BV(d ,   , 0xDD, 0xCB, d, 0x2E) }},
@@ -295,7 +308,7 @@ const std::multimap<std::string_view, OpCode> OpCodeTable  {
 	{{"out" }, { C_d , r   , 2, BV(  , r , 0xED, 0x41|r<<3) }},
 	{{"out" }, { C_d , n_0 , 2, BV(  ,   , 0xED, 0x71     ) }}, // undocumented
 	{{"outi"}, { _   , _   , 2, BV(  ,   , 0xED, 0xA3     ) }},
-	{{"outr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB3     ) }},
+	{{"otir"}, { _   , _   , 2, BV(  ,   , 0xED, 0xB3     ) }},
 	{{"outd"}, { _   , _   , 2, BV(  ,   , 0xED, 0xAB     ) }},
 	{{"otdr"}, { _   , _   , 2, BV(  ,   , 0xED, 0xBB     ) }}//,
 	#undef BV
