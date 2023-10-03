@@ -12,8 +12,11 @@ private:
         auto sign = [] (auto x) { return (x>0) ? 1 : (x<0) ? -1 : 0; };
         auto push = [&](auto i) {
             result.push_back(i);
-            if (graph[i] >  graph[highestPeakL]) highestPeakL = i;
-            if (graph[i] >= graph[highestPeakR]) highestPeakR = i;
+            if (result.size() == 1) highestPeakL = highestPeakR = i;
+            else {
+                if (graph[i] >  graph[highestPeakL]) highestPeakL = i;
+                if (graph[i] >= graph[highestPeakR]) highestPeakR = i;
+            }
         };
 
         enum { Begin, Ppos, Pneg } state = Begin;
@@ -41,7 +44,7 @@ public:
             auto it0 = std::next(graph.begin(),i0);
             auto it1 = std::next(graph.begin(),i1);
             return (i1 - i0) * height - std::accumulate(it0, it1, 0,
-                [](int a, int b) {
+                [&](int a, int b) {
                     return a + std::min(height, b);
                 }
             );
@@ -52,8 +55,9 @@ public:
             auto it = peaks.begin();
             int height = graph[*it];
             while (*it != maxL) {
-                for (auto j=std::next(it); graph[*j] <= height; ++j)
-                    ;
+                auto j = std::next(it);
+                while (graph[*j] <= height)
+                    ++j;
                 waterMass += area(*it, *j, height);
                 it=j, height = graph[*j];
             }
@@ -61,8 +65,9 @@ public:
             auto it = peaks.rbegin();
             int height = graph[*it];
             while (*it != maxR) {
-                for (auto j=std::prev(it); graph[*j] <= height; ++j)
-                    ;
+                auto j = std::next(it);
+                while (graph[*j] <= height)
+                    ++j;
                 waterMass += area(*j, *it, height);
                 it=j, height = graph[*j];
             }
