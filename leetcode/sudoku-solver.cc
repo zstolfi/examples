@@ -24,8 +24,8 @@ class Solution {
 		std::array {  8, 17, 26, 35, 44, 53, 62, 71, 80 },
 
 		std::array {  0,  1,  2,  9, 10, 11, 18, 19, 20 },  // 3x3 CELLS //
-		std::array {  4,  5,  6, 12, 13, 14, 21, 22, 23 },
-		std::array {  7,  8,  6, 15, 16, 17, 24, 25, 26 },
+		std::array {  3,  4,  5, 12, 13, 14, 21, 22, 23 },
+		std::array {  6,  7,  8, 15, 16, 17, 24, 25, 26 },
 		std::array { 27, 28, 29, 36, 37, 38, 45, 46, 47 },
 		std::array { 30, 31, 32, 39, 40, 41, 48, 49, 50 },
 		std::array { 33, 34, 35, 42, 43, 44, 51, 52, 53 },
@@ -59,14 +59,31 @@ class Solution {
 		}
 
 		// But convert back to 1-9 for the output.
-		operator BoardInOut() {
+		operator BoardInOut() const {
 			BoardInOut result = std::vector (9, std::vector (9, '.'));
-			for (unsigned i; i<81; i++) {
+			for (unsigned i=0; i<81; i++) {
 				bool assigned = std::holds_alternative<Number>(m_board[i]);
 				result[i/9][i%9] = assigned ? std::get<Number>(m_board[i]) + '1' : '.';
 			}
 			return result;
 		}
+
+		/* */ Cell& operator[](unsigned i) /* */ { return m_board[i]; }
+		const Cell& operator[](unsigned i) const { return m_board[i]; }
+
+		bool operator==(const Board& other) const {
+			for (unsigned i=0; i<81; i++) {
+				if (other.m_board[i].index() != this->m_board[i].index()
+				|| (std::holds_alternative<Number>(this->m_board[i])
+				&&  std::get<Number>(this->m_board[i])
+				!=  std::get<Number>(other.m_board[i]))) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		bool operator!=(const Board& other) const { return !(*this == other); }
 
 		void assignVal(unsigned i, char val) {
 			assert(std::holds_alternative<Possibilities>(m_board[i])
@@ -88,8 +105,36 @@ public:
 	void solveSudoku(BoardInOut& b) {
 		// Convert to our custom data type.
 		Board board {b};
-		
-		/* solving code */
+
+		{ Board prev=board; do { prev=board;
+			for (unsigned N=0; N<9; N++) {
+				for (auto group : groups) {
+					std::optional<unsigned> uniquePossible = {};
+					for (auto i : group) {
+						if (std::holds_alternative<Possibilities>(board[i])
+						&&  std::get<Possibilities>(board[i])[N]) {
+							if (!uniquePossible) uniquePossible = i;
+							else /*multiple possible*/ { uniquePossible = {}; break; }
+						}
+					}
+					if (uniquePossible) board.assignVal(*uniquePossible, N);
+				}
+				// for (unsigned i=0; i<81; i++) {
+				// 	if (!std::holds_alternative<Possibilities>(board[i])
+				// 	||  !std::get<Possibilities>(board[i])[N]) continue;
+				// 	for (auto groupId : groupsFromCell(i)) {
+				// 		int count = 0;
+				// 		for (auto j : groups[groupId]) {
+				// 			if (std::holds_alternative<Possibilities>(board[j])
+				// 			&&  std::get<Possibilities>(board[j])[N]) count++;
+				// 		}
+				// 		if (count == 1) {
+				// 			board.assignVal(i, N); break;
+				// 		}
+				// 	}
+				// }
+			}
+		} while(prev != board); }
 
 		// And convert back when done.
 		b = board;
