@@ -106,6 +106,7 @@ public:
 		// Convert to our custom data type.
 		Board board {b};
 
+		// Step 1: Immediate Deductions
 		{ Board prev=board; do { prev=board;
 			for (unsigned N=0; N<9; N++) {
 				for (auto group : groups) {
@@ -119,22 +120,11 @@ public:
 					}
 					if (uniquePossible) board.assignVal(*uniquePossible, N);
 				}
-				// for (unsigned i=0; i<81; i++) {
-				// 	if (!std::holds_alternative<Possibilities>(board[i])
-				// 	||  !std::get<Possibilities>(board[i])[N]) continue;
-				// 	for (auto groupId : groupsFromCell(i)) {
-				// 		int count = 0;
-				// 		for (auto j : groups[groupId]) {
-				// 			if (std::holds_alternative<Possibilities>(board[j])
-				// 			&&  std::get<Possibilities>(board[j])[N]) count++;
-				// 		}
-				// 		if (count == 1) {
-				// 			board.assignVal(i, N); break;
-				// 		}
-				// 	}
-				// }
 			}
 		} while(prev != board); }
+
+		// Step 2: ???
+		
 
 		// And convert back when done.
 		b = board;
