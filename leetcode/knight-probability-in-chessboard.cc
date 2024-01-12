@@ -1,7 +1,7 @@
 class Solution {
 	struct Board {
 		const unsigned N;
-		std::vector<std::size_t> board;
+		std::vector<double> board;
 		
 		Board (int n, int row, int col)
 		: N{static_cast<unsigned>(n)}
@@ -24,19 +24,18 @@ class Solution {
 						newBoard[i*N + j] += board[I*N + J];
 					}
 				}
+				newBoard[i*N + j] /= 8;
 			} }
 			board = newBoard;
 		}
 
-		unsigned count() { return std::reduce(board.begin(), board.end()); }
+		double count() { return std::reduce(board.begin(), board.end()); }
 	};
 public:
 	double knightProbability(int n, int k, int row, int col) {
 		Board board {n, row, col};
 		for (int i=0; i<k; i++) board.update();
 
-		double result = board.count();
-		for (int i=0; i<k; i++) result /= 8;
-		return result;
+		return board.count();
 	}
 };
