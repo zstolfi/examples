@@ -32,7 +32,7 @@ int main(int argc, char* args[]) try {
 		[img = window.surface] (unsigned x, unsigned y) {
 			if (!(0 <= x&&x < W) || !(0 <= y&&y < H)) return;
 			SDL::surfaceSetPixel(
-					img, x, y, SDL_MapRGB(img->format, 0, 0, 0)
+				img, x, y, SDL_MapRGB(img->format, 0, 0, 0)
 			);
 		}
 	};
@@ -57,7 +57,7 @@ int main(int argc, char* args[]) try {
 				window.surface, nullptr,
 				SDL_MapRGB(window.surface->format, 255, 255, 255)
 			);
-			font.draw(text, 10, 10);
+			font.draw(text, 10, 10, 2);
 			window.update();
 		}
 
