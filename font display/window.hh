@@ -1,59 +1,54 @@
 #pragma once
-#include <SDL.h>
-#include <memory>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <iostream>
+#include <string>
 #include <vector>
-#include <fstream>
-#include "game state.hh"
-#include "draw.hh"
-#include "fonts.hh"
+using namespace std::literals;
 
 class Window {
 private:
-	std::string title;
-	const int W;
-	const int H;
-	SDL_Window* window;
-	SDL_Surface* surface;
+	SDL_Window* m_window = nullptr;
 
 public:
-	std::unique_ptr<Canvas> canvas;
-	Media media;
+	SDL_Surface* surface = nullptr;
+	std::vector<SDL_Surface*> media;
 
-	Window(std::string title, const int W, const int H)
-	: title{title}, W{W}, H{H} {}
+	Window(
+		std::string title,
+		const int W, const int H,
+		std::vector<std::string> mediaFiles = {}
+	) {
+		// Start video and image library.
+		auto sdlFlags = SDL_INIT_VIDEO;
+		auto imgFlags = IMG_INIT_PNG;
+		if (SDL_Init(sdlFlags) != 0) throw "SDL init video"s;
+		if ((~IMG_Init(imgFlags) & imgFlags) != 0) throw "SDL image init"s;
 
-	bool init() {
-		// start video
-		if (SDL_Init(SDL_INIT_VIDEO)) { return false; }
-
-		// make window
-		window = SDL_CreateWindow(title.c_str(),
-			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W, H,
-			SDL_WINDOW_SHOWN);
-		if (window == NULL)  return false;
-
-		surface = SDL_GetWindowSurface(window);
-		canvas = std::make_unique<Canvas>(surface);
-		// SDL_CaptureMouse(SDL_TRUE);
-		return true;
-	}
-
-	bool loadMedia() {
-		std::ifstream file {"font 2.txt"};
-		if (!file) { return false; }
-		while (auto font = parseFont(file)) {
-			media.fonts.push_back(*font);
+		// Load media.
+		for (auto path : mediaFiles) {
+			SDL_Surface* image = IMG_Load(path.c_str());
+			if (!image) throw path;
+			media.push_back(image);
 		}
-		return true;
+
+		// Make window.
+		m_window = SDL_CreateWindow(
+			title.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			W, H, SDL_WINDOW_SHOWN
+		);
+		if (!m_window) throw "SDL create window"s;
+
+		// Set our drawing surface.
+		surface = SDL_GetWindowSurface(m_window);
 	}
 
-	void draw(const GameState& s) {
-		canvas->draw(media, s);
-		SDL_UpdateWindowSurface(window);
-	}
-
-	void close() {
-		SDL_DestroyWindow(window);
+	~Window() {
+		SDL_DestroyWindow(m_window);
 		SDL_Quit();
+	}
+
+	void update() {
+		SDL_UpdateWindowSurface(m_window);
 	}
 };
