@@ -23,10 +23,7 @@ int main(int argc, char* args[]) try {
 				SDL::surfaceGetPixel(img, 10u*(c-0x20) + x, y),
 				img->format, &r, &g, &b
 			);
-			// RED  : letter shapes
-			// GREEN: (unused)
-			// BLUE : letter padding
-			return r == 0;
+			return Font::PixelData { /*letter:*/ !r, /*padding:*/ !b};
 		},
 		// Set-pixel functor:
 		[img = window.surface] (unsigned x, unsigned y) {
@@ -41,6 +38,7 @@ int main(int argc, char* args[]) try {
 	bool input = true, quit = false;
 	while (!quit) {
 		// Handle events.
+		input = false;
 		for (SDL_Event ev; SDL_PollEvent(&ev); input=true) {
 			switch (ev.type) {
 				case SDL_QUIT: { quit = true; } break;
