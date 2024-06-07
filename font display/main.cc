@@ -12,8 +12,8 @@ int main(int argc, char* args[]) try {
 	const unsigned H = 600;
 	std::string text = (argc > 1) ? args[1] : "";
 
-	Window window {"SDL Project", W, H, {"assets/ftotf.png"}};
-	Font font {"Unnamed Font",
+	Window window {"SDL Project", W, H, {"assets/nivosia_beta.png"}};
+	Font font {"Nivosia Beta",
 		/*Start char:*/ 0x20, /*End char:*/ 0x7E,
 		/*Height:*/ 10, /*Tab width:*/ 40,
 		// Glyph region size functor:
