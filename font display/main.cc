@@ -13,7 +13,9 @@ int main(int argc, char* args[]) try {
 	std::string text = (argc > 1) ? args[1] : "";
 
 	Window window {"SDL Project", W, H, {"assets/ftotf.png"}};
-	Font font {"Unnamed Font", 0x20, 0x7E,
+	Font font {"Unnamed Font",
+		/*Start char:*/ 0x20, /*End char:*/ 0x7E,
+		/*Height:*/ 10, /*Tab width:*/ 40,
 		// Glyph region size functor:
 		[](char c) { return std::pair {10u, 10u}; },
 		// Get-pixel functor:

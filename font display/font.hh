@@ -58,18 +58,22 @@ public:
 private:
 	std::function<void(unsigned, unsigned)> setPixel;
 	std::map<char, Glyph> m_glyphs;
-	unsigned lineHeight = 10u; // TODO
+	unsigned lineHeight;
+	unsigned tabWidth;
 
 public:
 	const std::string title;
 
 	Font(
 		std::string title, unsigned min, unsigned max,
+		unsigned lineHeight, unsigned tabWidth,
 		std::function<std::pair<unsigned, unsigned>(char)> glyphRegionSize,
 		std::function<Font::PixelData(char, unsigned, unsigned)> getPixel,
 		std::function<void(unsigned, unsigned)> setPixel
 	)
-	: setPixel{setPixel}, title{title} {
+	: setPixel{setPixel}
+	, lineHeight{lineHeight}, tabWidth{tabWidth}
+	, title{title} {
 		for (unsigned c=min; c<=max; c++) {
 			auto [W, H] = glyphRegionSize(c);
 			std::vector<bool> pixels (W*H, false), padding (W*H, false);
@@ -86,24 +90,23 @@ public:
 	void draw(std::string str, unsigned x0, unsigned y0, unsigned scale=2) {
 		int x=x0, y=y0;
 		std::vector<unsigned> prevHullRight (lineHeight, 0);
-		for (char c : str) {
-			if (c == '\n') {
-				x = x0;
-				y += (lineHeight+1)*scale;
-				ranges::fill(prevHullRight, 0);
-				continue;
-			}
-			
+		for (char c : str) switch(c) {
+		break; case '\n':
+			x = x0;
+			y += (lineHeight+1)*scale;
+			ranges::fill(prevHullRight, 0);
+		break; case '\t':
+			x = nextTabStop(x);
+			ranges::fill(prevHullRight, 0);
+		break; default: {
 			if (!m_glyphs.contains(c)) continue;
 			auto& glyph = m_glyphs.at(c);
-
 			std::vector<int> hullDiff (lineHeight);
 			for (unsigned y=0; y<lineHeight; y++) {
 				hullDiff[y] = prevHullRight[y] - glyph.letterHull.left[y];
 			}
-			int step = *ranges::max_element(hullDiff);
 
-			x += step*scale;
+			x += *ranges::max_element(hullDiff) * scale;
 			prevHullRight = glyph.paddingHull.right;
 
 			// Draw it!
@@ -116,7 +119,8 @@ public:
 					scale
 				);
 			} }
-		}
+		} }
+
 	}
 
 private:
@@ -126,5 +130,9 @@ private:
 		for (unsigned x=0; x<size; x++) {
 			setPixel(x + x0, y + y0);
 		} }
+	}
+
+	unsigned nextTabStop(unsigned x) {
+		return tabWidth * (x / tabWidth + 1);
 	}
 };
