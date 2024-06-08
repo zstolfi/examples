@@ -15,7 +15,7 @@ int main(int argc, char* args[]) try {
 	Window window {"SDL Project", W, H, {"assets/nivosia_beta.png"}};
 	Font font {"Nivosia Beta",
 		/*Start char:*/ 0x20, /*End char:*/ 0x7E,
-		/*Height:*/ 10, /*Tab width:*/ 40,
+		/*Height:*/ 10, /*Tab width:*/ 20,
 		// Glyph region size functor:
 		[](char c) { return std::pair {10u, 10u}; },
 		// Get-pixel functor:

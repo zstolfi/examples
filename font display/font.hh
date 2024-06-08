@@ -6,6 +6,7 @@
 #include <numeric>
 #include <utility>
 #include <iostream>
+#include <limits>
 namespace ranges = std::ranges;
 
 class Font {
@@ -89,25 +90,21 @@ public:
 
 	void draw(std::string str, unsigned x0, unsigned y0, unsigned scale=2) {
 		int x=x0, y=y0;
-		std::vector<unsigned> prevHullRight (lineHeight, 0);
+		const Glyph* prevGlyph = nullptr;
 		for (char c : str) switch(c) {
 		break; case '\n':
 			x = x0;
 			y += (lineHeight+1)*scale;
-			ranges::fill(prevHullRight, 0);
+			prevGlyph = nullptr;
 		break; case '\t':
-			x = nextTabStop(x);
-			ranges::fill(prevHullRight, 0);
+			x = nextTabStop(x/scale)*scale;
+			prevGlyph = nullptr;
 		break; default: {
 			if (!m_glyphs.contains(c)) continue;
-			auto& glyph = m_glyphs.at(c);
-			std::vector<int> hullDiff (lineHeight);
-			for (unsigned y=0; y<lineHeight; y++) {
-				hullDiff[y] = prevHullRight[y] - glyph.letterHull.left[y];
-			}
+			const Glyph& glyph = m_glyphs.at(c);
 
-			x += *ranges::max_element(hullDiff) * scale;
-			prevHullRight = glyph.paddingHull.right;
+			x += kerning(prevGlyph, &glyph) * scale;
+			prevGlyph = &glyph;
 
 			// Draw it!
 			for (unsigned gy=0; gy<glyph.sizeY; gy++) {
@@ -124,6 +121,19 @@ public:
 	}
 
 private:
+	int kerning(const Glyph* a, const Glyph* b) {
+		if (b == nullptr) return 0;
+		if (a == nullptr) return -*ranges::min_element(b->letterHull.left);
+		int dist = std::numeric_limits<int>::min();
+		for (unsigned y=0; y<lineHeight; y++) {
+			dist = std::max<int>({dist,
+				(int)(a->paddingHull.right[y] - b->letterHull.left[y]),
+				(int)(a->letterHull.right[y] - b->paddingHull.left[y])
+			});
+		}
+		return dist;
+	}
+
 	void drawSquare(unsigned x0, unsigned y0, unsigned size) {
 		if (size == 1) { setPixel(x0, y0); return; }
 		for (unsigned y=0; y<size; y++) {
