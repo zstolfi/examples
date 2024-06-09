@@ -5,86 +5,109 @@
 #include <algorithm>
 #include <numeric>
 #include <utility>
+#include <variant>
 #include <iostream>
-#include <limits>
+#include <climits>
 namespace ranges = std::ranges;
+
+struct PixelData {
+	bool isLetter {}, isMargin {};
+};
+
+struct AsciiRange {
+	std::string list = "";
+	AsciiRange() {}
+	AsciiRange(std::string s) : list{s} {}
+	AsciiRange(char lo, char hi) {
+		list.resize(hi-lo + 1);
+		std::iota(list.begin(), list.end(), lo);
+	}
+};
+
+struct ImportSettings {
+	AsciiRange range {};
+	unsigned width {}, height {};
+};
+
+struct RenderSettings {
+	unsigned lineHeight = 15u;
+	unsigned tabStops = 20u;
+};
+
+struct Hull {
+	std::vector<int> left, right;
+	Hull(unsigned height) : left(height, INT_MAX), right(height, INT_MIN) {}
+	bool isEmptyAt(unsigned y) const { return left[y] > right[y]; }
+
+	void init(
+		unsigned sx, unsigned sy,
+		std::function<bool(unsigned, unsigned)> pred
+	) {
+		for (unsigned y=0; y<sy; y++) {
+		for (unsigned x=0; x<sx; x++) {
+			if (pred(x, y)) left [y] = std::min<int>(x  , left [y])
+			,               right[y] = std::max<int>(x+1, right[y]);
+		} }
+	}
+};
+
+struct Glyph {
+	const char code;
+	unsigned sizeX, sizeY;
+	std::vector<bool> pixels;
+	Hull letterHull, marginHull;
+
+	Glyph(
+		char c, unsigned sx, unsigned sy,
+		std::function<PixelData(char, unsigned, unsigned)> getPixel
+	)
+	: code{c}, sizeX{sx}, sizeY{sy}, pixels(sx*sy, false)
+	, letterHull{sy}, marginHull{sy} {
+		for (unsigned y=0; y<sy; y++) {
+		for (unsigned x=0; x<sx; x++) {
+			pixels[y * sy + x] = getPixel(c, x, y).isLetter;
+		} }
+		letterHull.init(sx, sy,
+			[&](unsigned x, unsigned y) { return getPixel(c, x, y).isLetter; }
+		);
+		marginHull.init(sx, sy,
+			[&](unsigned x, unsigned y) { return getPixel(c, x, y).isMargin; }
+		);
+
+		for (unsigned y=0; y<sy; y++) {
+			if (marginHull.isEmptyAt(y)) {
+				std::cerr << "Warning: marign on glyph '" << c << "'\n";
+				marginHull.left[y] = 0, marginHull.right[y] = 1;
+			}
+		}
+
+		if (ranges::none_of(pixels, std::identity {})) {
+			letterHull = marginHull;
+		}
+	}
+};
 
 class Font {
 public:
-	struct PixelData {
-		bool isLetter {}, isPadding {};
-		PixelData(bool l, bool p) : isLetter{l}, isPadding{p} {}
-	};
-
-	struct Hull {
-		std::vector<unsigned> left, right;
-		Hull(std::vector<bool> pixels, unsigned sx, unsigned sy)
-		: left(sy, sx), right(sy, 0) {
-			for (unsigned y=0; y<sy; y++) {
-			for (unsigned x=0; x<sx; x++) {
-				if (pixels[y * sy + x]) left [y] = std::min(x  , left [y])
-				,                       right[y] = std::max(x+1, right[y]);
-			} }
-		}
-
-		bool isEmptyAt(unsigned y) { return left[y] > right[y]; }
-	};
-
-	struct Glyph {
-		const char which;
-		unsigned sizeX, sizeY;
-		std::vector<bool> pixels;
-		Hull letterHull;
-		Hull paddingHull;
-
-		Glyph(
-			char c, unsigned sx, unsigned sy,
-			std::vector<bool> pixels, std::vector<bool> padding
-		)
-		: which{c}, sizeX{sx}, sizeY{sy}, pixels{pixels}
-		, letterHull{pixels, sx, sy}, paddingHull{padding, sx, sy} {
-			for (unsigned y=0; y<sy; y++) {
-				if (paddingHull.isEmptyAt(y)) {
-					std::cerr << "Warning: Padding on glyph '"<< which <<"'\n";
-					paddingHull.left [y] = 0, paddingHull.right[y] = 1;
-				}
-			}
-
-			if (ranges::none_of(pixels, std::identity {})) {
-				letterHull = paddingHull;
-			}
-		}
-	};
+	const std::string title;
+	RenderSettings render;
 
 private:
-	std::function<void(unsigned, unsigned)> setPixel;
+	const ImportSettings import;
+	std::function<void(unsigned, unsigned)> m_setPixel;
 	std::map<char, Glyph> m_glyphs;
-	unsigned lineHeight;
-	unsigned tabWidth;
 
 public:
-	const std::string title;
-
 	Font(
-		std::string title, unsigned min, unsigned max,
-		unsigned lineHeight, unsigned tabWidth,
-		std::function<std::pair<unsigned, unsigned>(char)> glyphRegionSize,
-		std::function<Font::PixelData(char, unsigned, unsigned)> getPixel,
+		std::string title, ImportSettings is, RenderSettings rs,
+		std::function<PixelData(char, unsigned, unsigned)> getPixel,
 		std::function<void(unsigned, unsigned)> setPixel
 	)
-	: setPixel{setPixel}
-	, lineHeight{lineHeight}, tabWidth{tabWidth}
-	, title{title} {
-		for (unsigned c=min; c<=max; c++) {
-			auto [W, H] = glyphRegionSize(c);
-			std::vector<bool> pixels (W*H, false), padding (W*H, false);
-			for (unsigned y=0; y<W; y++) {
-			for (unsigned x=0; x<H; x++) {
-				PixelData p = getPixel(c, x, y);
-				if (p.isLetter) pixels[y * W + x] = true;
-				if (p.isPadding) padding[y * W + x] = true;
-			} }
-			m_glyphs.emplace(c, Glyph {(char)c, W, H, pixels, padding});
+	: title{title}, render{rs}, import{is}, m_setPixel{setPixel} {
+		for (char c : import.range.list) {
+			m_glyphs.emplace(c,
+				Glyph {c, import.width, import.height, getPixel}
+			);
 		}
 	}
 
@@ -94,7 +117,7 @@ public:
 		for (char c : str) switch(c) {
 		break; case '\n':
 			x = x0;
-			y += (lineHeight+1)*scale;
+			y += (render.lineHeight+1)*scale;
 			prevGlyph = nullptr;
 		break; case '\t':
 			x = nextTabStop(x/scale)*scale;
@@ -124,25 +147,28 @@ private:
 	int kerning(const Glyph* a, const Glyph* b) {
 		if (b == nullptr) return 0;
 		if (a == nullptr) return -*ranges::min_element(b->letterHull.left);
-		int dist = std::numeric_limits<int>::min();
-		for (unsigned y=0; y<lineHeight; y++) {
-			dist = std::max<int>({dist,
-				(int)(a->paddingHull.right[y] - b->letterHull.left[y]),
-				(int)(a->letterHull.right[y] - b->paddingHull.left[y])
-			});
+		const Hull& aLtr = a->letterHull, aMgn = a->marginHull;
+		const Hull& bLtr = b->letterHull, bMgn = b->marginHull;
+
+		int dist = INT_MAX;
+		for (unsigned y=0; y<import.height; y++) {
+			int d1 = INT_MAX, d2 = INT_MAX;
+			if (!aLtr.isEmptyAt(y)) d1 = bMgn.left[y] - aLtr.right[y];
+			if (!bLtr.isEmptyAt(y)) d2 = bLtr.left[y] - aMgn.right[y];
+			dist = std::min({dist, d1, d2});
 		}
-		return dist;
+		return -dist;
 	}
 
 	void drawSquare(unsigned x0, unsigned y0, unsigned size) {
-		if (size == 1) { setPixel(x0, y0); return; }
+		if (size == 1) { m_setPixel(x0, y0); return; }
 		for (unsigned y=0; y<size; y++) {
 		for (unsigned x=0; x<size; x++) {
-			setPixel(x + x0, y + y0);
+			m_setPixel(x + x0, y + y0);
 		} }
 	}
 
 	unsigned nextTabStop(unsigned x) {
-		return tabWidth * (x / tabWidth + 1);
+		return render.tabStops * (x / render.tabStops + 1);
 	}
 };

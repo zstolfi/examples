@@ -14,10 +14,8 @@ int main(int argc, char* args[]) try {
 
 	Window window {"SDL Project", W, H, {"assets/nivosia_beta.png"}};
 	Font font {"Nivosia Beta",
-		/*Start char:*/ 0x20, /*End char:*/ 0x7E,
-		/*Height:*/ 10, /*Tab width:*/ 20,
-		// Glyph region size functor:
-		[](char c) { return std::pair {10u, 10u}; },
+		{.range = AsciiRange {0x20, 0x7E}, .width = 10u, .height = 10u},
+		{.lineHeight = 15u, .tabStops = 20u},
 		// Get-pixel functor:
 		[img = window.media[0]] (char c, unsigned x, unsigned y) {
 			uint8_t r=0, g=0, b=0;
@@ -25,7 +23,7 @@ int main(int argc, char* args[]) try {
 				SDL::surfaceGetPixel(img, 10u*(c-0x20) + x, y),
 				img->format, &r, &g, &b
 			);
-			return Font::PixelData { /*letter:*/ !r, /*padding:*/ !b};
+			return PixelData {.isLetter = !r, .isMargin = !b};
 		},
 		// Set-pixel functor:
 		[img = window.surface] (unsigned x, unsigned y) {
