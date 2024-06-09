@@ -112,21 +112,20 @@ public:
 	}
 
 	void draw(std::string str, unsigned x0, unsigned y0, unsigned scale=2) {
-		int x=x0, y=y0;
+		int x=0, y=0;
 		const Glyph* prevGlyph = nullptr;
 		for (char c : str) switch(c) {
 		break; case '\n':
-			x = x0;
-			y += (render.lineHeight+1)*scale;
+			x = 0, y += (render.lineHeight);
 			prevGlyph = nullptr;
 		break; case '\t':
-			x = nextTabStop(x/scale)*scale;
+			x = nextTabStop(x);
 			prevGlyph = nullptr;
 		break; default: {
 			if (!m_glyphs.contains(c)) continue;
 			const Glyph& glyph = m_glyphs.at(c);
 
-			x += kerning(prevGlyph, &glyph) * scale;
+			x += kerning(prevGlyph, &glyph);
 			prevGlyph = &glyph;
 
 			// Draw it!
@@ -134,8 +133,8 @@ public:
 			for (unsigned gx=0; gx<glyph.sizeX; gx++) {
 				if (!glyph.pixels[gy * glyph.sizeY + gx]) continue;
 				drawSquare(
-					x + gx*scale,
-					y + gy*scale,
+					x0 + (x+gx) * scale,
+					y0 + (y+gy) * scale,
 					scale
 				);
 			} }
