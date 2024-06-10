@@ -6,6 +6,8 @@
 #include <vector>
 using namespace std::literals;
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 class Window {
 private:
 	SDL_Window* m_window = nullptr;
@@ -16,7 +18,7 @@ public:
 
 	Window(
 		std::string title,
-		const int W, const int H,
+		unsigned W, unsigned H,
 		std::vector<std::string> mediaFiles = {}
 	) {
 		// Start video and image library.
@@ -44,11 +46,15 @@ public:
 	}
 
 	~Window() {
+		for (SDL_Surface* s: media) SDL_FreeSurface(s);
 		SDL_DestroyWindow(m_window);
 		SDL_Quit();
 	}
 
 	void update() {
+		// Display pixels stored in 'surface'.
 		SDL_UpdateWindowSurface(m_window);
 	}
 };
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

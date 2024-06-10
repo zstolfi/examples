@@ -7,6 +7,8 @@
 #include <utility>
 #include <cstdint>
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 int main(int argc, char* args[]) try {
 	const unsigned W = 800;
 	const unsigned H = 600;
@@ -14,8 +16,10 @@ int main(int argc, char* args[]) try {
 
 	Window window {"SDL Project", W, H, {"assets/nivosia_beta.png"}};
 	Font font {"Nivosia Beta",
-		{.range = AsciiRange {0x20, 0x7E}, .width = 10u, .height = 10u},
-		{.lineHeight = 15u, .tabStops = 20u},
+		// Input settings:
+		{.range = AsciiRange {0x20, 0x7E}, .width = 10, .height = 10},
+		// Default render settings:
+		{.lineHeight = 15, .tabStops = 20},
 		// Get-pixel functor:
 		[img = window.media[0]] (char c, unsigned x, unsigned y) {
 			uint8_t r=0, g=0, b=0;
@@ -26,15 +30,16 @@ int main(int argc, char* args[]) try {
 			return PixelData {.isLetter = !r, .isMargin = !b};
 		},
 		// Set-pixel functor:
-		[img = window.surface] (unsigned x, unsigned y) {
+		[img = window.surface] (unsigned x, unsigned y, Color col) {
 			if (!(0 <= x&&x < W) || !(0 <= y&&y < H)) return;
 			SDL::surfaceSetPixel(
-				img, x, y, SDL_MapRGB(img->format, 0, 0, 0)
+				img, x, y, SDL_MapRGB(img->format, col.r, col.g, col.b)
 			);
 		}
 	};
 
-	/* Main loop: */
+	/* ~~~~ Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 	bool input = true, quit = false;
 	while (!quit) {
 		// Handle events.
@@ -45,17 +50,28 @@ int main(int argc, char* args[]) try {
 				case SDL_KEYDOWN: {
 					switch (ev.key.keysym.sym) {
 						case SDLK_ESCAPE: { quit = true; } break;
-					} break;
-				}
+					}
+				} break;
 			}
 		}
 
+		// Only render on input.
 		if (input) {
 			SDL_FillRect(
 				window.surface, nullptr,
 				SDL_MapRGB(window.surface->format, 255, 255, 255)
 			);
-			font.draw(text, 10, 10, 2);
+			// Render our text!
+			font.draw(text, {
+				.position = {12, 12},
+				.scale = 4,
+				.color = {0x00, 0x00, 0x00},
+			});
+			font.draw(text, {
+				.position = {10, 10},
+				.scale = 4,
+				.color = {0xFF, 0xFF, 0xFF},
+			});
 			window.update();
 		}
 
@@ -65,3 +81,5 @@ int main(int argc, char* args[]) try {
 catch (const std::string& error) {
 	std::cerr << "ERROR:\t" << error << "\n";
 }
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

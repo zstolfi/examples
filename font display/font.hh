@@ -1,22 +1,20 @@
 #pragma once
-#include <string>
-#include <map>
 #include <functional>
+#include <map>
+#include <string>
 #include <algorithm>
 #include <numeric>
 #include <utility>
-#include <variant>
-#include <iostream>
-#include <climits>
-namespace ranges = std::ranges;
+#include <cstdint>
+
+/* ~~~~ User Input Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 struct PixelData {
-	bool isLetter {}, isMargin {};
+	bool isLetter : 1 {}, isMargin : 1 {};
 };
 
 struct AsciiRange {
 	std::string list = "";
-	AsciiRange() {}
 	AsciiRange(std::string s) : list{s} {}
 	AsciiRange(char lo, char hi) {
 		list.resize(hi-lo + 1);
@@ -24,34 +22,31 @@ struct AsciiRange {
 	}
 };
 
-struct ImportSettings {
-	AsciiRange range {};
-	unsigned width {}, height {};
+struct Color {
+	uint8_t r {}, g {}, b {};
 };
 
-struct RenderSettings {
-	unsigned lineHeight = 15u;
-	unsigned tabStops = 20u;
+struct StyleSettings {
+	struct { unsigned x, y; } position = {0, 0};
+	unsigned scale = 1;
+	Color color = {0, 0, 0};
 };
 
+/* ~~~~ Font Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+// The left & right edges of a shape. (Used for kerning).
 struct Hull {
 	std::vector<int> left, right;
-	Hull(unsigned height) : left(height, INT_MAX), right(height, INT_MIN) {}
-	bool isEmptyAt(unsigned y) const { return left[y] > right[y]; }
-
+	Hull(unsigned height);
+	bool isEmptyAt(unsigned y) const;
 	void init(
 		unsigned sx, unsigned sy,
 		std::function<bool(unsigned, unsigned)> pred
-	) {
-		for (unsigned y=0; y<sy; y++) {
-		for (unsigned x=0; x<sx; x++) {
-			if (pred(x, y)) left [y] = std::min<int>(x  , left [y])
-			,               right[y] = std::max<int>(x+1, right[y]);
-		} }
-	}
+	);
 };
 
-struct Glyph {
+class Glyph {
+public:
 	const char code;
 	unsigned sizeX, sizeY;
 	std::vector<bool> pixels;
@@ -60,114 +55,44 @@ struct Glyph {
 	Glyph(
 		char c, unsigned sx, unsigned sy,
 		std::function<PixelData(char, unsigned, unsigned)> getPixel
-	)
-	: code{c}, sizeX{sx}, sizeY{sy}, pixels(sx*sy, false)
-	, letterHull{sy}, marginHull{sy} {
-		for (unsigned y=0; y<sy; y++) {
-		for (unsigned x=0; x<sx; x++) {
-			pixels[y * sy + x] = getPixel(c, x, y).isLetter;
-		} }
-		letterHull.init(sx, sy,
-			[&](unsigned x, unsigned y) { return getPixel(c, x, y).isLetter; }
-		);
-		marginHull.init(sx, sy,
-			[&](unsigned x, unsigned y) { return getPixel(c, x, y).isMargin; }
-		);
-
-		for (unsigned y=0; y<sy; y++) {
-			if (marginHull.isEmptyAt(y)) {
-				std::cerr << "Warning: marign on glyph '" << c << "'\n";
-				marginHull.left[y] = 0, marginHull.right[y] = 1;
-			}
-		}
-
-		if (ranges::none_of(pixels, std::identity {})) {
-			letterHull = marginHull;
-		}
-	}
+	);
 };
 
 class Font {
 public:
+	struct ImportSettings {
+		AsciiRange range {""};
+		unsigned width {}, height {};
+	};
+
+	struct RenderSettings {
+		unsigned lineHeight = 15;
+		unsigned tabStops = 20;
+	};
+
 	const std::string title;
 	RenderSettings render;
 
 private:
 	const ImportSettings import;
-	std::function<void(unsigned, unsigned)> m_setPixel;
+	std::function<void(unsigned, unsigned, Color)> m_setPixel;
 	std::map<char, Glyph> m_glyphs;
 
 public:
 	Font(
-		std::string title, ImportSettings is, RenderSettings rs,
+		std::string title, ImportSettings, RenderSettings,
 		std::function<PixelData(char, unsigned, unsigned)> getPixel,
-		std::function<void(unsigned, unsigned)> setPixel
-	)
-	: title{title}, render{rs}, import{is}, m_setPixel{setPixel} {
-		for (char c : import.range.list) {
-			m_glyphs.emplace(c,
-				Glyph {c, import.width, import.height, getPixel}
-			);
-		}
-	}
+		std::function<void(unsigned, unsigned, Color)> setPixel
+	);
 
-	void draw(std::string str, unsigned x0, unsigned y0, unsigned scale=2) {
-		int x=0, y=0;
-		const Glyph* prevGlyph = nullptr;
-		for (char c : str) switch(c) {
-		break; case '\n':
-			x = 0, y += (render.lineHeight);
-			prevGlyph = nullptr;
-		break; case '\t':
-			x = nextTabStop(x);
-			prevGlyph = nullptr;
-		break; default: {
-			if (!m_glyphs.contains(c)) continue;
-			const Glyph& glyph = m_glyphs.at(c);
-
-			x += kerning(prevGlyph, &glyph);
-			prevGlyph = &glyph;
-
-			// Draw it!
-			for (unsigned gy=0; gy<glyph.sizeY; gy++) {
-			for (unsigned gx=0; gx<glyph.sizeX; gx++) {
-				if (!glyph.pixels[gy * glyph.sizeY + gx]) continue;
-				drawSquare(
-					x0 + (x+gx) * scale,
-					y0 + (y+gy) * scale,
-					scale
-				);
-			} }
-		} }
-
-	}
+	void draw(std::string str, StyleSettings = {});
 
 private:
-	int kerning(const Glyph* a, const Glyph* b) {
-		if (b == nullptr) return 0;
-		if (a == nullptr) return -*ranges::min_element(b->letterHull.left);
-		const Hull& aLtr = a->letterHull, aMgn = a->marginHull;
-		const Hull& bLtr = b->letterHull, bMgn = b->marginHull;
+	int kerning(const Glyph* a, const Glyph* b);
 
-		int dist = INT_MAX;
-		for (unsigned y=0; y<import.height; y++) {
-			int d1 = INT_MAX, d2 = INT_MAX;
-			if (!aLtr.isEmptyAt(y)) d1 = bMgn.left[y] - aLtr.right[y];
-			if (!bLtr.isEmptyAt(y)) d2 = bLtr.left[y] - aMgn.right[y];
-			dist = std::min({dist, d1, d2});
-		}
-		return -dist;
-	}
+	unsigned nextTabStop(unsigned x);
 
-	void drawSquare(unsigned x0, unsigned y0, unsigned size) {
-		if (size == 1) { m_setPixel(x0, y0); return; }
-		for (unsigned y=0; y<size; y++) {
-		for (unsigned x=0; x<size; x++) {
-			m_setPixel(x + x0, y + y0);
-		} }
-	}
-
-	unsigned nextTabStop(unsigned x) {
-		return render.tabStops * (x / render.tabStops + 1);
-	}
+	void drawSquare(unsigned x0, unsigned y0, StyleSettings);
 };
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
