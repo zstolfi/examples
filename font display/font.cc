@@ -33,7 +33,7 @@ Glyph::Glyph(
 	// Initialize pixel/hull member variables.
 	for (unsigned y=0; y<sy; y++) {
 	for (unsigned x=0; x<sx; x++) {
-		pixels[y * sy + x] = letterPx(x, y);
+		pixels[y * sx + x] = letterPx(x, y);
 	} }
 	letterHull.init(sx, sy, letterPx);
 	marginHull.init(sx, sy, marginPx);
@@ -85,7 +85,7 @@ void Font::draw(std::string str, StyleSettings style) {
 		// Draw our glyph!
 		for (unsigned gy=0; gy<glyph.sizeY; gy++) {
 		for (unsigned gx=0; gx<glyph.sizeX; gx++) {
-			if (glyph.pixels[gy * glyph.sizeY + gx]) {
+			if (glyph.pixels[gy * glyph.sizeX + gx]) {
 				drawSquare(x+gx, y+gy, style);
 			}
 		} }
