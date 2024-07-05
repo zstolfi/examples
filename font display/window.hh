@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <span>
 using namespace std::literals;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -19,7 +20,7 @@ public:
 	Window(
 		std::string title,
 		unsigned W, unsigned H,
-		std::vector<std::string> mediaFiles = {}
+		std::span<const std::string> mediaFiles = {}
 	) {
 		// Start video and image library.
 		auto sdlFlags = SDL_INIT_VIDEO;
@@ -28,7 +29,7 @@ public:
 		if ((~IMG_Init(imgFlags) & imgFlags) != 0) throw "SDL image init"s;
 
 		// Load media.
-		for (auto path : mediaFiles) {
+		for (std::string path : mediaFiles) {
 			SDL_Surface* image = IMG_Load(path.c_str());
 			if (!image) throw path;
 			media.push_back(image);
