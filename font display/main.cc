@@ -45,9 +45,9 @@ int main(int argc, char* args[]) try {
 	Font blackletter {"Unnamed Blackletter",
 		// Input settings:
 		{.range = AsciiRange {" abcdefghijklmnopqrstuvwxyz"},
-		 .width = 128, .height = 208},
+		 .width = 256/2, .height = 416/2},
 		// Default render settings:
-		{.lineHeight = 180, .tabStops = 240},
+		{.lineHeight = 360/2, .tabStops = 480/2},
 		// Get-pixel functor:
 		[img = window.media[1]] (char c, unsigned x, unsigned y) {
 			uint8_t r=0, g=0, b=0;
