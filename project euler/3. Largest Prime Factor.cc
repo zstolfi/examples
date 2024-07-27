@@ -3,8 +3,8 @@
 #include <tuple>
 using UINT = unsigned long long;
 
-std::pair<UINT, UINT> removeSmallestFactor(UINT n) {
-	for (UINT p=2; p*p < n; p++) {
+std::pair<UINT, UINT> splitSmallestFactor(UINT n) {
+	for (UINT p=2; p*p <= n; p++) {
 		if (n%p == 0) return {p, n/p};
 	}
 	return {n, 1};
@@ -15,7 +15,7 @@ int main() {
 	UINT n = in, factor {};
 	std::cout << "Factors of " << in << ":\n";
 	while (n > 1) {
-		std::tie(factor, n) = removeSmallestFactor(n);
+		std::tie(factor, n) = splitSmallestFactor(n);
 		std::cout << factor << "\n";
 	}
 }
