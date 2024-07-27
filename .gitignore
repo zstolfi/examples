@@ -1,2 +1,3 @@
 *.o
 /font display/fontDisplay
+/project euler/solution*
