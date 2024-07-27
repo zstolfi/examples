@@ -24,7 +24,7 @@ public:
 	FactoredNumber(UINT n) {
 		for (UINT factor{}; n>1; ) {
 			std::tie(factor, n) = splitSmallestFactor(n);
-			m_map[factor]++
+			m_map[factor]++;
 		}
 	}	
 	
@@ -48,5 +48,10 @@ public:
 int main() {
 	FactoredNumber fac {};
 	for (UINT i=1; i<=20; i++) fac.combine(FactoredNumber {i});
-	std::cout << UINT {fac} << "\n";
+
+	std::cout << UINT {fac};
+	for (int i=0; auto [prime, exp] : fac.getFactors()) {
+		std::cout << (i++? " * ": " = ") << prime << "^" << exp;
+	}
+	std::cout << "\n";
 }
