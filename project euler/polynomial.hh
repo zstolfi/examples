@@ -2,7 +2,6 @@
 #include <vector>
 #include <algorithm>
 #include <ranges>
-#include <concepts>
 namespace ranges = std::ranges;
 
 #ifdef LAGRANGE_INTERPOLATION

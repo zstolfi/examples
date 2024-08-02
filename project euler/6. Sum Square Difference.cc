@@ -5,14 +5,14 @@
 
 int main() {
 	Polynomial sumOfSquares {FromLagrange, (double [][2]) {
-		{0, 0}
+		{0, 0},
 		{1, 1},
 		{2, 1+4},
 		{3, 1+4+9},
 	}};
 
 	Polynomial sum {FromLagrange, (double [][2]) {
-		{0, 0}
+		{0, 0},
 		{1, 1},
 		{2, 1+2},
 	}};
