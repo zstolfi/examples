@@ -26,47 +26,24 @@ constexpr std::array<std::array<UINT, 20>, 20> Grid {{
 	{ 1,70,54,71,83,51,54,69,16,92,33,48,61,43,52, 1,89,19,67,48},
 }};
 
-void iterateH(auto&& f) {
-	for (std::size_t i=0; i<20    ; i++) {
-	for (std::size_t j=0; j<20-N+1; j++) {
+template <UINT W, UINT H, UINT Step, UINT Offset=0>
+void iterate(auto&& f) {
+	for (std::size_t x=0; x<=20-W; x++) {
+	for (std::size_t y=0; y<=20-H; y++) {
 		std::array<UINT, N> adj {};
-		for (std::size_t k=0; k<N; k++) adj[k] = Grid[i][j+k];
-		f(adj);
-	} }
-}
-
-void iterateV(auto&& f) {
-	for (std::size_t i=0; i<20-N+1; i++) {
-	for (std::size_t j=0; j<20    ; j++) {
-		std::array<UINT, N> adj {};
-		for (std::size_t k=0; k<N; k++) adj[k] = Grid[i+k][j];
-		f(adj);
-	} }
-}
-
-void iterateD1(auto&& f) {
-	for (std::size_t i=0; i<20-N+1; i++) {
-	for (std::size_t j=0; j<20-N+1; j++) {
-		std::array<UINT, N> adj {};
-		for (std::size_t k=0; k<N; k++) adj[k] = Grid[i+k][j+k];
-		f(adj);
-	} }
-}
-
-void iterateD2(auto&& f) {
-	for (std::size_t i=0; i<20-N+1; i++) {
-	for (std::size_t j=0; j<20-N+1; j++) {
-		std::array<UINT, N> adj {};
-		for (std::size_t k=0; k<N; k++) adj[k] = Grid[i+k][j+N-1-k];
+		for (std::size_t k=0; k<N; k++) {
+			std::size_t index = (y*20+x) + k*Step + Offset;
+			adj[k] = Grid[index/20][index%20];
+		}
 		f(adj);
 	} }
 }
 
 void iterateAll(auto&& f) {
-	iterateH(f);
-	iterateV(f);
-	iterateD1(f);
-	iterateD2(f);
+	iterate<4,1, 1  >(f); // Horizontal
+	iterate<1,4,20  >(f); // Vertical
+	iterate<4,4,21  >(f); // Diagnal Forward
+	iterate<4,4,19,3>(f); // Diagnal Backward
 }
 
 int main() {
