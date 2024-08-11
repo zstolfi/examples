@@ -184,14 +184,13 @@ public:
 
 	// TODO: optimize by not copying 'number'.
 	friend std::ostream& operator<<(std::ostream& os, Dense number) {
-		// std::vector<char> result {};
-		// for (;number; number/=10) result.push_back(char {number%10} + '0');
-		// if (result.empty()) result = {'0'};
-		// ranges::copy(
-		// 	ranges::reverse_view {result},
-		// 	std::ostream_iterator<char> {os}
-		// );
-		os << number.digits.size();
+		std::vector<char> result {};
+		for (;number; number/=10) result.push_back(char {number%10} + '0');
+		if (result.empty()) result = {'0'};
+		ranges::copy(
+			ranges::reverse_view {result},
+			std::ostream_iterator<char> {os}
+		);
 		return os;
 	}
 
@@ -238,22 +237,15 @@ private:
 		return canonicalize();
 	}
 
-	// https://en.wikipedia.org/wiki/Long_division#Algorithm_for_arbitrary_base
+	// https://en.wikipedia.org/wiki/Division_algorithm#Integer_division_(unsigned)_with_remainder
 	std::pair<Dense, Dense> divMod(const Dense& other) const {
-		const auto& a = digits, &b = other.digits;
 		if (other == Dense {}) return {};
-		if (a.size() < b.size()) return {0, *this};
-		std::size_t size = a.size() - b.size() + 1;
-		Dense q {}, r = *this >> 8*size;
-		for (std::size_t i=size; i-- > 0; ) {
-			Dense d = r << 8 | getDigit(i);
-			for (unsigned β=0; β<256; β++) {
-				Dense rNew = d-other*β;
-				if (rNew < other) {
-					q = q << 8 | β;
-					r = rNew;
-					break;
-				}
+		Dense q {}, r {};
+		for (std::size_t i=8*digits.size(); i-- > 0; ) {
+			r = r << 1 | getBit(i);
+			if (r >= other) {
+				r -= other;
+				q.setBit(i, true);
 			}
 		}
 		return {q, r};
