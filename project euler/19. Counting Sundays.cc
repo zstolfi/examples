@@ -37,11 +37,7 @@ int main () {
 	UINT days = 0; // Days since Mon. Jan 1st, 1900 epoch.
 	for (; Date {days} != Date {1901, 1, 1}; days++) ;
 	for (; Date {days} != Date {2001, 1, 1}; days++) {
-		if (Date{days}.day == 1 && days%7 == 6) {
-			Date date {days};
-			std::cout << date.year << "/" << date.month << "/" << date.day << "\n";
-			sum++;
-		}
+		sum += Date{days}.day == 1 && days%7 == 6;
 	}
 	std::cout << "Sum: " << sum << "\n";
 }
