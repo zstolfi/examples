@@ -28,3 +28,7 @@ public:
 		return m_tab[args] = m_function(a...);
 	}
 };
+
+// These won't work if F is recursive.
+template <Function_c F> Tab(F*) -> Tab<F>;
+template <Function_c F> Tab(auto, F*) -> Tab<F>;

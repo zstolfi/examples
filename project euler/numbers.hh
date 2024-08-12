@@ -16,15 +16,27 @@ public:
 
 	const auto& getPrimes() const { return m_factors; }
 
-	UINT divisorCount() const {
+	std::size_t divisorCount() const {
+		if (m_factors.empty()) return 0;
+		
 		UINT result = 1;
 		for (auto [prime, exp] : m_factors) {
-			result *= exp + 1;
+			result *= exp+1;
 		}
 		return result;
 	}
 
-	// void iterateDivisors(auto&& f);
+	// Not guaranteed to be in order.
+	void iterateDivisors(auto&& f) {
+		for (std::size_t i=0; i<divisorCount(); i++) {
+			UINT divisor = 1;
+			for (std::size_t j=i; auto [prime, exp] : m_factors) {
+				for (UINT k=1; k <= j % (exp+1); k++) divisor *= prime;
+				j /= exp+1;
+			}
+			f(divisor);
+		}
+	}
 
 private:
 	std::pair<UINT, UINT> splitSmallestFactor(UINT n) {
