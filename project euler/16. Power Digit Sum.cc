@@ -8,5 +8,5 @@ int main() {
 
 	UINT sum = 0;
 	for (;n; n/=10) sum += UINT {n%10};
-	std::cout << "Sum: " << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }

@@ -53,5 +53,5 @@ int main() {
 		for (std::size_t k=0; k<N; k++) product *= adj[k];
 		if (product > maxProduct) maxProduct = product;
 	});
-	std::cout << "Product: " << maxProduct << "\n";
+	std::cout << "Product:\n" << maxProduct << "\n";
 }

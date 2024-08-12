@@ -39,5 +39,5 @@ int main () {
 	for (; Date {days} != Date {2001, 1, 1}; days++) {
 		sum += Date{days}.day == 1 && days%7 == 6;
 	}
-	std::cout << "Sum: " << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }

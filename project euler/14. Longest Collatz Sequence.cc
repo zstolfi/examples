@@ -21,4 +21,5 @@ int main() {
 	}
 	auto max = extrema.getMax();
 	std::cout << "ChainLength(" << max.second << ") = " << max.first << "\n";
+	std::cout << max.second << "\n";
 }

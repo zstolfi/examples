@@ -15,5 +15,5 @@ int main() {
 		}
 	}
 	std::cout << a << "^2 + " << b << "^2 = " << c << "^2\n";
-	std::cout << "Product: " << a*b*c << "\n";
+	std::cout << "Product:\n" << a*b*c << "\n";
 }

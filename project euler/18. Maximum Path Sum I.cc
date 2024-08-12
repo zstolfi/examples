@@ -35,5 +35,5 @@ int main() {
 		}
 	}
 
-	std::cout << "Max sum: " << t[0][0] << "\n";
+	std::cout << "Max sum:\n" << t[0][0] << "\n";
 }

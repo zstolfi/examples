@@ -28,7 +28,7 @@ int main() {
 		UINT pal = makePalindrome(n, 6);
 		for (UINT fac=999; fac*fac > pal; fac--) {
 			if (pal % fac != 0) continue;
-			std::cout << pal << " = " << fac << " * " << pal/fac << "\n";
+			std::cout << fac << " * " << pal/fac << " =\n" << pal << "\n";
 			return 0;
 		}
 	}

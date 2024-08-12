@@ -17,6 +17,6 @@ int main() {
 		{2, 1+2},
 	}};
 
-	std::cout << "Difference: " << std::fixed << std::setprecision(0)
-	/*     */ << sum(100)*sum(100) - sumOfSquares(100) << "\n";
+	std::cout << "Difference:\n" << std::fixed << std::setprecision(0);
+	std::cout << sum(100)*sum(100) - sumOfSquares(100) << "\n";
 }

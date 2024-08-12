@@ -16,6 +16,6 @@ int main() {
 			if (primes.size() >= N) break;
 		}
 	}
-	std::cout << "N = " << N << "\n";
-	std::cout << "Nth prime: " << primes[N-1] << "\n";
+	std::cout << "Prime #" << N << ":\n";
+	std::cout << primes[N-1] << "\n";
 }

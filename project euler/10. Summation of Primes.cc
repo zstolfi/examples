@@ -8,5 +8,5 @@ int main() {
 	for (UINT i=0; sieve.getPrime(i) < 2'000'000; i++) {
 		sum += sieve.getPrime(i);
 	}
-	std::cout << "Sum: " << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }

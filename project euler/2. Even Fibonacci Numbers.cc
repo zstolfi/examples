@@ -12,5 +12,5 @@ int main() {
 	for (UINT i=0; fib(i) <= 4'000'000; i++) {
 		if (fib(i) % 2 == 0) sum += fib(i);
 	}
-	std::cout << "Sum:\t" << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }

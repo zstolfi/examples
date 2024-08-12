@@ -57,5 +57,5 @@ int main() {
 			if (c!=' ' && c!='-') sum++;
 		}
 	}
-	std::cout << "Sum: " << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }

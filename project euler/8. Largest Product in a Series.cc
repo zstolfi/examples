@@ -51,5 +51,5 @@ int main() {
 			}
 		}
 	}
-	std::cout << "Product: " << maxProduct << "\n";
+	std::cout << "Product:\n" << maxProduct << "\n";
 }

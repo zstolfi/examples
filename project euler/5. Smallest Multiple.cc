@@ -49,9 +49,8 @@ int main() {
 	FactoredNumber fac {};
 	for (UINT i=1; i<=20; i++) fac.combine(FactoredNumber {i});
 
-	std::cout << UINT {fac};
 	for (int i=0; auto [prime, exp] : fac.getFactors()) {
-		std::cout << (i++? " * ": " = ") << prime << "^" << exp;
+		std::cout << (i++? " * ": "") << prime << "^" << exp;
 	}
-	std::cout << "\n";
+	std::cout << " =\n" << UINT {fac} << "\n";
 }

@@ -16,5 +16,5 @@ int main() {
 	}
 	// Number<UINT> i = 1;
 	// while (triangleNumber(i).factors().divisorCount() <= 500) i++;
-	std::cout << "Triangle[" << i << "] = " << triangleNumber(i) << "\n";
+	std::cout << "Triangle[" << i << "] =\n" << triangleNumber(i) << "\n";
 }

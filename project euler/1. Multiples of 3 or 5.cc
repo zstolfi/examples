@@ -6,5 +6,5 @@ int main() {
 	for (std::size_t i=0; i<1000; i++) {
 		if (i%3 == 0 or i%5 == 0) sum += i;
 	}
-	std::cout << "Sum:\t" << sum << "\n";
+	std::cout << "Sum:\n" << sum << "\n";
 }
