@@ -27,13 +27,12 @@ public:
 	}
 
 	UINT divisorSum() const {
+//		UINT result = 0;
+//		iterateDivisors([&](UINT d) { result += d; });
+//		return result;
 		UINT result = 1;
 		for (auto [prime, exp] : m_factors) {
-			UINT sum = 0;
-			for (UINT q=1, i=0; i<=exp; q*=prime, i++) {
-				sum += q;
-			}
-			result *= sum;
+			result *= (pow(prime, exp+1)-1) / (prime-1);
 		}
 		return result;
 	}
@@ -51,11 +50,17 @@ public:
 	}
 
 private:
-	std::pair<UINT, UINT> splitSmallestFactor(UINT n) {
+	static std::pair<UINT, UINT> splitSmallestFactor(UINT n) {
 		for (UINT p=2; p*p<=n; p++) if (n%p == 0) {
 			return {p, n/p};
 		}
 		return {n, 1};
+	}
+
+	static UINT pow(UINT a, UINT b) {
+		UINT result = 1;
+		while (b-- > 0) result *= a;
+		return result;
 	}
 };
 

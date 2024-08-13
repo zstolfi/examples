@@ -19,10 +19,7 @@ int main() {
 				break;
 			}
 		}
-		if (expressable) {
-			std::cout << i << "\n";
-			sum += i;
-		};
+		if (expressable) sum += i;
 	}
 	std::cout << "Sum:\n" << sum << "\n";
 }
