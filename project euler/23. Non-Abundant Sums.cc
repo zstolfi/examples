@@ -4,18 +4,14 @@
 using UINT = unsigned;
 
 UINT d(UINT n) {
-	UINT sum = 0;
-	Factors{n}.iterateDivisors([&](UINT divisor) {
-		if (divisor != n) sum += divisor;
-	});
-	return sum;
+	return Factors{n}.divisorSum() - n;
 }
 
 bool isAbundant(UINT n) { return d(n) > n; }
 
 int main() {
 	UINT sum = 0;
-	for (UINT i=24; i<28'123; i++) {
+	for (UINT i=1; i<28'123; i++) {
 		bool expressable = true;
 		for (UINT j=1; j<=i/2; j++) {
 			if (isAbundant(j) && isAbundant(i-j)) {
@@ -23,7 +19,10 @@ int main() {
 				break;
 			}
 		}
-		if (expressable) sum += i;
+		if (expressable) {
+			std::cout << i << "\n";
+			sum += i;
+		};
 	}
 	std::cout << "Sum:\n" << sum << "\n";
 }

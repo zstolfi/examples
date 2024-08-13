@@ -16,7 +16,7 @@ public:
 
 	const auto& getPrimes() const { return m_factors; }
 
-	std::size_t divisorCount() const {
+	UINT divisorCount() const {
 		if (m_factors.empty()) return 0;
 		
 		UINT result = 1;
@@ -26,11 +26,23 @@ public:
 		return result;
 	}
 
+	UINT divisorSum() const {
+		UINT result = 1;
+		for (auto [prime, exp] : m_factors) {
+			UINT sum = 0;
+			for (UINT q=1, i=0; i<=exp; q*=prime, i++) {
+				sum += q;
+			}
+			result *= sum;
+		}
+		return result;
+	}
+
 	// Not guaranteed to be in order.
-	void iterateDivisors(auto&& f) {
-		for (std::size_t i=0; i<divisorCount(); i++) {
+	void iterateDivisors(auto&& f) const {
+		for (UINT i=0; i<divisorCount(); i++) {
 			UINT divisor = 1;
-			for (std::size_t j=i; auto [prime, exp] : m_factors) {
+			for (UINT j=i; auto [prime, exp] : m_factors) {
 				for (UINT k=1; k <= j % (exp+1); k++) divisor *= prime;
 				j /= exp+1;
 			}
