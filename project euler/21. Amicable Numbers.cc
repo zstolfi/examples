@@ -4,8 +4,8 @@ using UINT = unsigned;
 
 UINT d(UINT n) {
 	UINT sum = 0;
-	Factors{n}.iterateDivisors([&](UINT d) {
-		if (d != n) sum += d;
+	Factors{n}.iterateDivisors([&](UINT divisor) {
+		if (divisor != n) sum += divisor;
 	});
 	return sum;
 }
