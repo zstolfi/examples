@@ -10,6 +10,7 @@
 const std::string Media_List[] {
 	/*0*/ "assets/nivosia_beta.png",
 	/*1*/ "assets/blackletter_1b.png",
+	/*2*/ "assets/blocky.png",
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -66,6 +67,34 @@ int main(int argc, char* args[]) try {
 			);
 		}
 	};
+	Font blocky {"Unnamed Blocky",
+		// Input settings:
+		{.range = AsciiRange {" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789&"},
+		 .width = 80, .height = 72}, 
+		// Default render settings:
+		{.lineHeight = 60, .tabStops = 100},
+		// Get-pixel functor:
+		[img = window.media[2]] (char c, unsigned x, unsigned y) {
+			uint8_t r=0, g=0, b=0;
+			int i = 0;
+			if ('A' <= c&&c <= 'Z') i = c-'A' + 1;
+			if ('a' <= c&&c <= 'z') i = c-'a' + 1;
+			if ('0' <= c&&c <= '9') i = c-'0' + 27;
+			if (c == '&') i = 37;
+			SDL_GetRGB(
+				SDL::surfaceGetPixel(img, 80*i + x, y),
+				img->format, &r, &g, &b
+			);
+			return PixelData {.isLetter = !r, .isMargin = !b};
+		},
+		// Set-pixel functor:
+		[img = window.surface] (unsigned x, unsigned y, Color col) {
+			if (!(0 <= x&&x < W) || !(0 <= y&&y < H)) return;
+			SDL::surfaceSetPixel(
+				img, x, y, SDL_MapRGB(img->format, col.r, col.g, col.b)
+			);
+		}
+	};
 
 	/* ~~~~ Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -92,7 +121,7 @@ int main(int argc, char* args[]) try {
 			);
 			// Render our text!
 			pixel      .draw(text, {.position = {10, 10}, .scale = 3});
-			blackletter.draw(text, {.position = {10, 60}, .scale = 1});
+			blocky     .draw(text, {.position = {10, 60}, .scale = 1});
 			window.update();
 		}
 
