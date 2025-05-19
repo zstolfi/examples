@@ -3,8 +3,22 @@ const tf = (v, m) => ({
 	y: m[3]*v.x + m[4]*v.y + m[5]
 });
 
-// [0, 1] version
-const hilbert = (i, t) => {
+const flipCase = (v) => {
+	let {x,y} = v;
+	while (x > 1 || y > 1) x >>= 2, y >>= 2;
+	return x || y;
+}
+
+const snapDown = (x) => {
+	// Remove all but the MSB (Kernighan's Algorithm)
+	while (x & x-1) x &= x-1;
+	return x;
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+// [0, 1] -> [0, 1] × [0, 1]
+const hilbertUnit = (i, t) => {
 	if (t < 0) return hilbert(i, 0);
 	if (t > 1) return hilbert(i, 1);
 	if (t == 1) return {x:1, y:0};
@@ -30,30 +44,8 @@ const hilbert = (i, t) => {
 	}
 };
 
-// [0, 4^N) version
-const hilbert = (i, t) => {
-	const N = 1 << (2*i), n = N / 4;
-	const S = 1 << i,     s = S / 2;
-	if (t < 0) return hilbert(i, 0);
-	if (t >= N) return hilbert(i, N-1);
-	if (i == 0) return {x:0, y:0};
-
-	const tf = (v, mx, my) => ({
-		x: mx[0]*v.x + mx[1]*v.y + mx[2],
-		y: my[0]*v.x + my[1]*v.y + my[2]
-	});
-
-	const h = hilbert(i-1, t%n);
-	switch (Math.floor(t/n)) {
-		case 0: return tf(h, [ 0, 1, 0  ,  1, 0, 0  ]);
-		case 1: return tf(h, [ 1, 0, 0  ,  0, 1, s  ]);
-		case 2: return tf(h, [ 1, 0, s  ,  0, 1, s  ]);
-		case 3: return tf(h, [ 0,-1, S-1, -1, 0, s-1]);
-	}
-};
-
-// unit square version
-const hilbert_inv = (i, v) => {
+// [0, 1] × [0, 1] -> [0, 1]
+const hilbertUnit_inv = (i, v) => {
 	if (i == 0) return 0;
 	const qx = v.x >= 0.5;
 	const qy = v.y >= 0.5;
@@ -75,26 +67,48 @@ const hilbert_inv = (i, v) => {
 	return 1/4 * (q + hilbert_inv(i-1, p));
 };
 
-// 2^N x 2^N square version
-const hilbert_inv = (i, v) => {
-	const N = 1 << (2*i), n = N / 4;
-	const S = 1 << i,     s = S / 2;
-	if (i == 0) return 0;
-	
-	let q = 0;
-	const [x, y] = [v.x >= s, v.y >= s];
-	if (!x && !y) q = 0;
-	if (!x &&  y) q = 1;
-	if ( x &&  y) q = 2;
-	if ( x && !y) q = 3;
+// [0, 4^N) -> [0, 2^N) × [0, 2^N)
+const hilbert = (t) => {
+	let flip = false;
+	let S = 1;
+	result = {x:0, y:0};
+	while (t) {
+		S *= 2;
+		let s = S/2;
 
-	const c = [
-		[ 0, 1, 0  ,  1, 0, 0  ],
-		[ 1, 0, 0  ,  0, 1,-s  ],
-		[ 1, 0,-s  ,  0, 1,-s  ],
-		[ 0,-1, s-1, -1, 0, S-1]
-	];
+		const c = flip;
+		if (t%4 == 1) result = tf(result, [ 0, 1, c? s : 0  ,  1, 0, c? 0 : s ]);
+		if (t%4 == 2) result = tf(result, [ 0, 1, c? s : s  ,  1, 0, c? s : s ]);
+		if (t%4 == 3) result = tf(result, [-1, 0, c?s-1:S-1 ,  0,-1, c?S-1:s-1]);
 
-	const p = tf(v, c[q]);
-	return q*n + hilbert_inv(i-1, p);
+		t >>= 2;
+		flip = !flip;
+	}
+	return result;
+};
+
+// [0, 2^N) × [0, 2^N) -> [0, 4^N)
+const hilbert_inv = (v) => {
+	let {x,y} = v;
+	let result = 0;
+	while (x || y) {
+		let c = flipCase({x:x, y:y});
+		let s = Math.max(snapDown(x), snapDown(y));
+		let S = 2*s;
+		let qx = x >= s; let qy = y >= s;
+
+		let quadrant = 0;
+		if (!qx &&  qy) quadrant = c? 3: 1;
+		if ( qx &&  qy) quadrant = c? 2: 2;
+		if ( qx && !qy) quadrant = c? 1: 3;
+
+		w = {x:x, y:y};
+		if (quadrant == 1) w = tf(w, [ 0, 1, c? 0 :-s  ,  1, 0, c?-s : 0 ]);
+		if (quadrant == 2) w = tf(w, [ 0, 1, c?-s :-s  ,  1, 0, c?-s :-s ]);
+		if (quadrant == 3) w = tf(w, [-1, 0, c?s-1:S-1 ,  0,-1, c?S-1:s-1]);
+		x=w.x, y=w.y;
+
+		result += s*s * quadrant;
+	}
+	return result;
 };
