@@ -69,20 +69,16 @@ const hilbertUnit_inv = (i, v) => {
 
 // [0, 4^N) -> [0, 2^N) × [0, 2^N)
 const hilbert = (t) => {
-	let flip = false;
-	let S = 1;
+	let c = false;
+	let S = 1, s = 0;
 	result = {x:0, y:0};
-	while (t) {
-		S *= 2;
-		let s = S/2;
+	for (;t; t >>= 2, c = !c) {
+		S *= 2, s = S/2;
 
-		const c = flip;
+		if (t%4 == 0) continue;
 		if (t%4 == 1) result = tf(result, [ 0, 1, c? s : 0  ,  1, 0, c? 0 : s ]);
 		if (t%4 == 2) result = tf(result, [ 0, 1, c? s : s  ,  1, 0, c? s : s ]);
 		if (t%4 == 3) result = tf(result, [-1, 0, c?s-1:S-1 ,  0,-1, c?S-1:s-1]);
-
-		t >>= 2;
-		flip = !flip;
 	}
 	return result;
 };
@@ -111,4 +107,24 @@ const hilbert_inv = (v) => {
 		result += s*s * quadrant;
 	}
 	return result;
+};
+
+// iteration, bitCount, prefix -> [xy-min, xy-max)
+const hilbertBitRect = (i, b, n) => {
+	let t0 = n << (i-b);
+	let t1 = (n+1) << (i-b);
+	let hn = [
+		hilbert(t0),
+		hilbert(Math.floor((2*t0 + t1) / 3)),
+		hilbert(Math.floor((t0 + 2*t1) / 3)),
+		hilbert(t1-1),
+	];
+	let hx = hn.map(h => h.x);
+	let hy = hn.map(h => h.y);
+	if (i%4 >= 2) [hx, hy] = [hy, hx];
+
+	return {
+		min: {x: Math.min(...hx)  , y: Math.min(...hy)  },
+		max: {x: Math.max(...hx)+1, y: Math.max(...hy)+1}
+	};
 };
