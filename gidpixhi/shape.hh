@@ -17,7 +17,6 @@ struct Shape {
 
 	Shape(
 		FromVertices_Arg,
-		unsigned edgesPerVertex,
 		std::span<Point const> points
 	) {
 		vertices = std::set<Vertex> {points.begin(), points.end()};
@@ -29,9 +28,11 @@ struct Shape {
 				distanceOrder.insert({distanceSquared(vertex, other), &other});
 			}
 			// Skip ourself (distance 0) and insert the next closest.
-			auto distIt = distanceOrder.begin();
-			for (int i=0; i<edgesPerVertex; i++) {
-				edges.insert({&vertex, (++distIt)->second});
+			float minOtherDist = std::next(distanceOrder.begin(), 1)->first;
+			auto lower = distanceOrder.lower_bound(minOtherDist);
+			auto upper = distanceOrder.upper_bound(minOtherDist + 1e-10);
+			for (auto it=lower; it!=upper; ++it) {
+				edges.insert({&vertex, it->second});
 			}
 		}
 		// Faces are always on the convex hull of the shape.

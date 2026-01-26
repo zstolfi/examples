@@ -36,7 +36,7 @@ PlyGeometry asPly(Shape const& shape) {
 
 int main() {
 	Shape const cuboctahedron {
-		FromVertices, 4,
+		FromVertices,
 		std::vector<Point> {
 			{-1,  0, +1},
 			{ 0, -1, +1},
