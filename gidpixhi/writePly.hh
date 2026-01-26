@@ -6,7 +6,7 @@
 #include <bit>
 
 struct PlyGeometry {
-	std::vector<std::array<float, 3>> vertices;
+	std::vector<std::array<double, 3>> vertices;
 	std::vector<std::vector<uint32_t>> faces;
 };
 
@@ -48,17 +48,17 @@ void writePly(std::ostream& output, PlyGeometry const& data) {
 	}
 	else std::cerr << "Unsupported platform.\n";
 	output << "element vertex " << data.vertices.size() << "\n";
-	output << "property float x\n";
-	output << "property float y\n";
-	output << "property float z\n";
+	output << "property double x\n";
+	output << "property double y\n";
+	output << "property double z\n";
 	output << "element face " << data.faces.size() << "\n";
 	// TODO: possibly optimize "uint" based on vertex count
 	output << "property list uchar uint vertex_indices\n";
 	output << "end_header\n";
 	for (auto const& vertex : data.vertices) {
-		output << asBytes<uint32_t>(vertex[0]);
-		output << asBytes<uint32_t>(vertex[1]);
-		output << asBytes<uint32_t>(vertex[2]);
+		output << asBytes<uint64_t>(vertex[0]);
+		output << asBytes<uint64_t>(vertex[1]);
+		output << asBytes<uint64_t>(vertex[2]);
 	}
 	for (auto const& face : data.faces) {
 		output << asBytes<uint8_t>(face.size());

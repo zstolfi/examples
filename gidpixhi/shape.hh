@@ -23,12 +23,12 @@ struct Shape {
 		// The edges are the nearest other vertices to any vertex.
 		for (auto const& vertex : vertices) {
 			// Order all vertices by distance (including self).
-			std::multimap<float, Vertex const*> distanceOrder {};
+			std::multimap<double, Vertex const*> distanceOrder {};
 			for (auto const& other : vertices) {
 				distanceOrder.insert({distanceSquared(vertex, other), &other});
 			}
 			// Skip ourself (distance 0) and insert the next closest.
-			float minOtherDist = std::next(distanceOrder.begin(), 1)->first;
+			double minOtherDist = std::next(distanceOrder.begin(), 1)->first;
 			auto lower = distanceOrder.lower_bound(minOtherDist);
 			auto upper = distanceOrder.upper_bound(minOtherDist + 1e-10);
 			for (auto it=lower; it!=upper; ++it) {
