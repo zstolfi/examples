@@ -3,7 +3,87 @@
 #include <algorithm>
 #include <iterator>
 
-PlyGeometry asPly(Shape const& shape) {
+struct Net {
+	using SegmentIndex = std::size_t;
+	struct Segment {
+		Shape polygon {}; // Face in "assembled" position.
+		std::vector<SegmentIndex> neighbors {};
+		Segment(Shape s): polygon{s} {}
+
+		Point normal() const {
+			Set<Shape::Vertex> faceVertices {};
+			for (auto ei: polygon.faces[0]) for (auto vi: polygon.edges[ei]) {
+				faceVertices.insert(polygon.vertices[vi]);
+				if (faceVertices.size() == 3) return ::normal(faceVertices);
+			}
+			return {};
+		}
+
+		double dihedralAngle() const;
+	};
+	std::vector<Segment> segments {};
+
+	Net(Shape const& shape) {
+		// Calculate neighbors before creating Segment objects.
+		std::map<Shape::Face, Set<Shape::Face>> dualGraph {};
+		for (auto face : shape.faces) {
+			for (auto other : shape.faces) if (face != other) {
+				bool similarEdge = std::any_of(
+					face.begin(), face.end(),
+					[&](auto edgeIndex) { return other.contains(edgeIndex); }
+				);
+				if (similarEdge) dualGraph[face].insert(other);
+			}
+		}
+		// Explode shape into polygonal faces.
+		std::map<Shape::Face, SegmentIndex> segmentOf {};
+		for (Shape::Face f : shape.faces) {
+			Set<Shape::Vertex> newVertices {};
+			for (auto ei : f) for (auto vi : shape.edges[ei]) {
+				newVertices.insert(shape.vertices[vi]);
+			}
+			segmentOf[f] = segments.size();
+			segments.emplace_back(Shape {FromVertices, newVertices});
+		}
+		// Assign neighbors.
+		for (auto [face, neighbors] : dualGraph) {
+			for (auto other : neighbors) {
+				segments[segmentOf[face]].neighbors.push_back(segmentOf[other]);
+			}
+		}
+		// Sort by how "upwards" they face.
+		std::sort(
+			segments.begin(), segments.end(),
+			[](auto const& a, auto const& b) {
+				return a.normal().z
+				>      b.normal().z;
+			}
+		);
+		// Cut the graph into a tree. That is, remove all connections except
+		// for those that lead to the most upwards faces.
+		for (SegmentIndex i=0; i<segments.size(); i++) {
+			auto& n = segments[i].neighbors;
+			if (i == 0) n = {};
+			else n = {*std::max_element(
+				n.begin(), n.end(),
+				[&](SegmentIndex a, SegmentIndex b) {
+					return segments[a].normal().z
+					>      segments[b].normal().z;
+				}
+			)};
+		}
+	}
+
+	std::vector<Shape> interpolate(double t) {
+		std::vector<Shape> result {};
+		for (Segment const& s : segments) {
+			result.push_back(s.polygon);
+		}
+		return result;
+	}
+};
+
+PlyGeometry asPly(std::span<Shape const> shapes) {
 	PlyGeometry result {};
 	std::map<Shape::Vertex, uint32_t> indexOf {};
 	auto perVertex = [&](auto const& shape, auto const& v) {
@@ -62,7 +142,7 @@ int main() {
 		},
 	};
 
-	writePly(std::cout, asPly(cuboctahedron));
-//	Net net {cuboctahedron};
-//	writePly(std::cout, asPly(net.interpolate(0)));
+//	writePly(std::cout, asPly(cuboctahedron));
+	Net net {cuboctahedron};
+	writePly(std::cout, asPly(net.interpolate(0)));
 }

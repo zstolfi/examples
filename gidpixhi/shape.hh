@@ -10,6 +10,7 @@ constexpr struct FromVertices_Arg {} FromVertices {};
 struct Shape {
 	using VertexIndex = std::size_t;
 	using EdgeIndex = std::size_t;
+	using FaceIndex = std::size_t;
 
 	using Vertex = Point;
 	using Edge = Set<VertexIndex>;
