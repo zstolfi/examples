@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <span>
 
 // TODO: allow any numeric type in place of 'double'
 struct Point {
@@ -36,4 +37,10 @@ Point cross(Point a, Point b) {
 		{a.y*b.z, a.z*b.x, a.x*b.y},
 		{a.z*b.y, a.x*b.z, a.y*b.x}
 	);
+}
+
+Point normal(std::span<Point const> points) {
+	Point a = sub(points[0], points[2]);
+	Point b = sub(points[1], points[2]);
+	return norm(cross(a, b));
 }

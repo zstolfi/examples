@@ -6,18 +6,21 @@
 PlyGeometry asPly(Shape const& shape) {
 	PlyGeometry result {};
 	std::map<Shape::Vertex, uint32_t> indexOf {};
-	for (auto const& v: shape.vertices) {
+	auto perVertex = [&](auto const& shape, auto const& v) {
 		indexOf[v] = result.vertices.size();
 		result.vertices.push_back({v.x, v.y, v.z});
-	}
-	for (auto const& f : shape.faces) {
+	};
+	auto perFace = [&](auto const& shape, auto const& f) {
 		std::vector<Shape::Vertex> vertices {};
-		for (auto const* e : f) for (auto const* v : *e) vertices.push_back(*v);
+		for (Shape::EdgeIndex ei : f) {
+			for (Shape::VertexIndex vi : shape.edges[ei]) {
+				vertices.push_back(shape.vertices[vi]);
+			}
+		}
 		// Remove duplicates.
 		{
-			std::sort(vertices.begin(), vertices.end());
-			auto last = std::unique(vertices.begin(), vertices.end());
-			vertices.erase(last, vertices.end());
+			Set<Shape::Vertex> temp {vertices.begin(), vertices.end()};
+			vertices = {temp.begin(), temp.end()};
 		}
 		// Sort in rotational order.
 		// TODO: Prove v0 and v1 will always share an edge. 
@@ -30,8 +33,14 @@ PlyGeometry asPly(Shape const& shape) {
 		std::vector<uint32_t> face {};
 		for (auto v : vertices) face.push_back(indexOf[v]);
 		result.faces.push_back(face);
-	}
+	};
+	for (auto const& s: shapes) for (auto const& v: s.vertices) perVertex(s, v);
+	for (auto const& s: shapes) for (auto const& f: s.faces   ) perFace  (s, f);
 	return result;
+}
+
+PlyGeometry asPly(Shape const& shape) {
+	return asPly({&shape, std::size_t {1}});
 }
 
 int main() {
@@ -54,4 +63,6 @@ int main() {
 	};
 
 	writePly(std::cout, asPly(cuboctahedron));
+//	Net net {cuboctahedron};
+//	writePly(std::cout, asPly(net.interpolate(0)));
 }

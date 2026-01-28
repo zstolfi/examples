@@ -1,50 +1,50 @@
 #pragma once
 #include "math.hh"
+#include "orderedSet.hh"
 #include <vector>
 #include <span>
-#include <set>
 #include <map>
 
 constexpr struct FromVertices_Arg {} FromVertices {};
 
 struct Shape {
+	using VertexIndex = std::size_t;
+	using EdgeIndex = std::size_t;
+
 	using Vertex = Point;
-	using Edge = std::set<Vertex const*>;
-	using Face = std::set<Edge const*>;
-	std::set<Vertex> vertices {};
-	std::set<Edge> edges {};
-	std::set<Face> faces {};
+	using Edge = Set<VertexIndex>;
+	using Face = Set<EdgeIndex>;
+	Set<Vertex> vertices {};
+	Set<Edge> edges {};
+	Set<Face> faces {};
+
+	Shape() = default;
 
 	Shape(
 		FromVertices_Arg,
 		std::span<Point const> points
 	) {
-		vertices = std::set<Vertex> {points.begin(), points.end()};
+		vertices = Set<Vertex> {points.begin(), points.end()};
 		// The edges are the nearest other vertices to any vertex.
-		for (auto const& vertex : vertices) {
+		for (VertexIndex i=0; i<vertices.size(); i++) {
 			// Order all vertices by distance (including self).
-			std::multimap<double, Vertex const*> distanceOrder {};
-			for (auto const& other : vertices) {
-				distanceOrder.insert({distanceSquared(vertex, other), &other});
+			std::multimap<double, VertexIndex> distanceOrder {};
+			for (VertexIndex j=0; j<vertices.size(); j++) {
+				double dist = distanceSquared(vertices[i], vertices[j]);
+				distanceOrder.insert({dist, j});
 			}
 			// Skip ourself (distance 0) and insert the next closest.
 			double minOtherDist = std::next(distanceOrder.begin(), 1)->first;
 			auto lower = distanceOrder.lower_bound(minOtherDist);
 			auto upper = distanceOrder.upper_bound(minOtherDist + 1e-10);
-			for (auto it=lower; it!=upper; ++it) {
-				edges.insert({&vertex, it->second});
-			}
+			for (auto it=lower; it!=upper; ++it) edges.insert({i, it->second});
 		}
 		// Faces are always on the convex hull of the shape.
-		for (auto const& edge : edges) {
+		for (EdgeIndex i=0; i<edges.size(); i++) {
 			// Only two coplanar loops will be on the convex hull.
-			for (auto const* vertexP : neighbors(*edge.begin())) {
-				std::vector<Point const*> plane {
-					*std::next(edge.begin(), 0),
-					*std::next(edge.begin(), 1),
-					vertexP,
-				};
-				if (plane[0] == vertexP || plane[1] == vertexP) continue;
+			for (VertexIndex vi : connectedVertices(edges[i][0])) {
+				Set<VertexIndex> plane = edges[i];
+				if (plane.insert(vi); plane.size() < 3) continue;
 				auto possibleFace = coplanar(plane);
 				if (isOnConvexHull(possibleFace)) {
 					// Add all edges on this face's perimeter.
@@ -55,59 +55,58 @@ struct Shape {
 	}
 
 private:
-	std::set<Vertex const*> neighbors(Vertex const* point) const {
-		std::set<Vertex const*> result {};
+	Set<VertexIndex> connectedVertices(VertexIndex point) const {
+		Set<VertexIndex> result {};
 		for (auto const& e : edges) {
-			std::vector<Vertex const*> v {e.begin(), e.end()};
-			if (v[0] == point) result.insert(v[1]);
-			if (v[1] == point) result.insert(v[0]);
+			if (e[0] == point) result.insert(e[1]);
+			if (e[1] == point) result.insert(e[0]);
 		}
 		return result;
 	}
 
-	Point normal(std::vector<Vertex const*> points) const {
-		Point a = sub(*points[0], *points[2]);
-		Point b = sub(*points[1], *points[2]);
-		return norm(cross(a, b));
-	}
-
-	std::set<Vertex const*> coplanar(std::vector<Vertex const*> points) const {
-		std::set<Vertex const*> result {};
-		Point tangent = normal(points);
-		for (auto const& vertex : vertices) {
-			if (std::abs(dot(sub(vertex, *points[0]), tangent)) < 1e-10) {
-				result.insert(&vertex);
-			}
+	Set<VertexIndex> coplanar(Set<VertexIndex> planeVertices) const {
+		Set<VertexIndex> result {};
+		Point tangent = normalVertices(planeVertices);
+		for (VertexIndex i=0; i<vertices.size(); i++) {
+			Point dir = direction(i, planeVertices[0]);
+			if (std::abs(dot(dir, tangent)) < 1e-10) result.insert(i);
 		}
 		return result;
 	}
 
-	bool isOnConvexHull(std::set<Vertex const*> faceVertices) const {
+	bool isOnConvexHull(Set<VertexIndex> planeVertices) const {
 		bool anyPositive = false;
 		bool anyNegative = false;
-		std::vector<Vertex const*> plane {
-			std::next(faceVertices.begin(), 0),
-			std::next(faceVertices.begin(), 3)
-		};
-		Point tangent = normal(plane);
-		for (auto const& vertex : vertices) {
-			auto h = dot(sub(vertex, *plane[0]), tangent);
+		Point tangent = normalVertices(planeVertices);
+		for (VertexIndex i=0; i<vertices.size(); i++) {
+			Point dir = direction(i, planeVertices[0]);
+			auto h = dot(dir, tangent);
 			if (h > +1e-10) anyPositive = true;
 			if (h < -1e-10) anyNegative = true;
 		}
 		return !anyPositive || !anyNegative;
 	}
 
-	std::set<Edge const*> edgesInVertexSet(std::set<Vertex const*> vSet) const {
-		std::set<Edge const*> result {};
-		for (auto const& edge : edges) {
-			auto const* v0 = *std::next(edge.begin(), 0);
-			auto const* v1 = *std::next(edge.begin(), 1);
-			if (vSet.contains(v0) && vSet.contains(v1)) {
-				result.insert(&edge);
+	Set<EdgeIndex> edgesInVertexSet(Set<VertexIndex> viSet) const {
+		Set<EdgeIndex> result {};
+		for (EdgeIndex i=0; i<edges.size(); i++) {
+			if (viSet.contains(edges[i][0]) && viSet.contains(edges[i][1])) {
+				result.insert(i);
 			}
 		}
 		return result;
+	}
+
+	Point normalVertices(Set<VertexIndex> subset) const {
+		return normal(std::vector<Point> {
+			vertices[subset[0]],
+			vertices[subset[1]],
+			vertices[subset[2]],
+		});
+	}
+
+	Point direction(VertexIndex i, VertexIndex j) const {
+		return sub(vertices[i], vertices[j]);
 	}
 };
 
