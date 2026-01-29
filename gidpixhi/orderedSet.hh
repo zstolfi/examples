@@ -32,7 +32,7 @@ struct Set : public std::vector<T> {
 		return std::vector<T>::operator[](n);
 	}
 
-	bool contains(T const& val) {
+	bool contains(T const& val) const {
 		return std::binary_search(this->begin(), this->end(), val);
 	}
 

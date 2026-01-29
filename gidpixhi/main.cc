@@ -1,76 +1,96 @@
 #include "shape.hh"
 #include "writePly.hh"
 #include <algorithm>
+#include <numeric>
 #include <iterator>
 
 struct Net {
 	using SegmentIndex = std::size_t;
+	static constexpr SegmentIndex NoParent = -1;
 	struct Segment {
 		Shape polygon {}; // Face in "assembled" position.
-		std::vector<SegmentIndex> neighbors {};
-		Segment(Shape s): polygon{s} {}
-
-		Point normal() const {
-			Set<Shape::Vertex> faceVertices {};
-			for (auto ei: polygon.faces[0]) for (auto vi: polygon.edges[ei]) {
-				faceVertices.insert(polygon.vertices[vi]);
-				if (faceVertices.size() == 3) return ::normal(faceVertices);
-			}
-			return {};
-		}
-
-		double dihedralAngle() const;
+		Point normal {};
+		SegmentIndex parent = NoParent;
+		double dihedralAngle {};
+		struct { Point rayOrigin, rayDirection; } axis {};
 	};
 	std::vector<Segment> segments {};
 
 	Net(Shape const& shape) {
-		// Calculate neighbors before creating Segment objects.
-		std::map<Shape::Face, Set<Shape::Face>> dualGraph {};
-		for (auto face : shape.faces) {
-			for (auto other : shape.faces) if (face != other) {
-				bool similarEdge = std::any_of(
-					face.begin(), face.end(),
-					[&](auto edgeIndex) { return other.contains(edgeIndex); }
-				);
-				if (similarEdge) dualGraph[face].insert(other);
-			}
-		}
+		struct Crossing { SegmentIndex si; Shape::Edge edge; };
+		std::map<SegmentIndex, std::vector<Crossing>> graph {};
 		// Explode shape into polygonal faces.
-		std::map<Shape::Face, SegmentIndex> segmentOf {};
 		for (Shape::Face f : shape.faces) {
-			Set<Shape::Vertex> newVertices {};
-			for (auto ei : f) for (auto vi : shape.edges[ei]) {
-				newVertices.insert(shape.vertices[vi]);
+			Set<Shape::Vertex> faceVertices {};
+			for (auto ei: f) for (auto vi: shape.edges[ei]) {
+				faceVertices.insert(shape.vertices[vi]);
 			}
-			segmentOf[f] = segments.size();
-			segments.emplace_back(Shape {FromVertices, newVertices});
+			// Keep track of neighboring connections.
+			for (auto ei: f) {
+				SegmentIndex si = segments.size();
+				auto neighbor = std::find_if(
+					segments.begin(), segments.end(),
+					[&](auto const& s) {
+						return s.polygon.faces[0].contains(ei);
+					}
+				);
+				SegmentIndex ni = std::distance(segments.begin(), neighbor);
+				if (ni < segments.size()) {
+					graph[si].emplace_back(ni, shape.edges[ei]);
+					graph[ni].emplace_back(si, shape.edges[ei]);
+				}
+			}
+			segments.emplace_back(
+				Shape {FromVertices, faceVertices},
+				normal(faceVertices)
+				// The rest of the fields to be filled out once the parent
+				// is determined
+			);
 		}
-		// Assign neighbors.
-		for (auto [face, neighbors] : dualGraph) {
-			for (auto other : neighbors) {
-				segments[segmentOf[face]].neighbors.push_back(segmentOf[other]);
+		// Make all normals point outwards.
+		{
+			auto average = [](auto const& verts) {
+				return scale(
+					std::reduce(verts.begin(), verts.end(), Point {}, add),
+					1.0 / verts.size()
+				);
+			};
+			Point inside = average(shape.vertices);
+			for (Segment& s : segments) {
+				Point polygonPos = average(s.polygon.vertices);
+				Point polygonDir = sub(polygonPos, inside);
+				if (dot(s.normal, polygonDir) < 0) {
+					s.normal = scale(s.normal, -1);
+				}
 			}
 		}
 		// Sort by how "upwards" they face.
 		std::sort(
 			segments.begin(), segments.end(),
-			[](auto const& a, auto const& b) {
-				return a.normal().z
-				>      b.normal().z;
+			[](Segment const& a, Segment const& b) {
+				return a.normal.z > b.normal.z;
 			}
 		);
-		// Cut the graph into a tree. That is, remove all connections except
-		// for those that lead to the most upwards faces.
-		for (SegmentIndex i=0; i<segments.size(); i++) {
-			auto& n = segments[i].neighbors;
-			if (i == 0) n = {};
-			else n = {*std::max_element(
-				n.begin(), n.end(),
-				[&](SegmentIndex a, SegmentIndex b) {
-					return segments[a].normal().z
-					>      segments[b].normal().z;
+		// For each non-root node, connect itself to its most upward neighbor.
+		for (SegmentIndex si=1; si<segments.size(); si++) {
+			auto parent = *std::max_element(
+				graph[si].begin(), graph[si].end(),
+				[&](Crossing a, Crossing b) {
+					return segments[a.si].normal.z
+					>      segments[b.si].normal.z;
 				}
-			)};
+			);
+			segments[si].parent = parent.si;
+			// Calculate dihedral angle.
+			segments[si].dihedralAngle = std::acos(
+				dot(segments[si].normal, segments[parent.si].normal)
+			);
+			// Calculate axis of rotation.
+			segments[si].axis.rayOrigin = shape.vertices[parent.edge[0]];
+			segments[si].axis.rayDirection = norm(sub(
+				shape.vertices[parent.edge[0]],
+				shape.vertices[parent.edge[1]]
+			));
 		}
 	}
 

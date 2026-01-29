@@ -10,6 +10,14 @@ struct Point {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+Point scale(Point v, double s) {
+	return {v.x*s, v.y*s, v.z*s};
+}
+
+Point add(Point a, Point b) {
+	return {a.x+b.x, a.y+b.y, a.z+b.z};
+}
+
 Point sub(Point a, Point b) {
 	return {a.x-b.x, a.y-b.y, a.z-b.z};
 }
@@ -27,9 +35,12 @@ double distance(Point a, Point b) {
 	return std::sqrt(distanceSquared(a, b));
 }
 
+double length(Point v) {
+	return distance(v, {0, 0, 0});
+}
+
 Point norm(Point v) {
-	double dist = distance(v, {0, 0, 0});
-	return {v.x/dist, v.y/dist, v.z/dist};
+	return scale(v, 1/length(v));
 }
 
 Point cross(Point a, Point b) {
