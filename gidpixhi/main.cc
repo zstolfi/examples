@@ -19,26 +19,14 @@ struct Net {
 	Net(Shape const& shape) {
 		struct Crossing { SegmentIndex si; Shape::Edge edge; };
 		std::map<SegmentIndex, std::vector<Crossing>> graph {};
+		std::map<Shape::Edge, Set<SegmentIndex>> edgeConnections {};
 		// Explode shape into polygonal faces.
 		for (Shape::Face f : shape.faces) {
+			SegmentIndex si = segments.size();
 			Set<Shape::Vertex> faceVertices {};
 			for (auto ei: f) for (auto vi: shape.edges[ei]) {
 				faceVertices.insert(shape.vertices[vi]);
-			}
-			// Keep track of neighboring connections.
-			for (auto ei: f) {
-				SegmentIndex si = segments.size();
-				auto neighbor = std::find_if(
-					segments.begin(), segments.end(),
-					[&](auto const& s) {
-						return s.polygon.faces[0].contains(ei);
-					}
-				);
-				SegmentIndex ni = std::distance(segments.begin(), neighbor);
-				if (ni < segments.size()) {
-					graph[si].emplace_back(ni, shape.edges[ei]);
-					graph[ni].emplace_back(si, shape.edges[ei]);
-				}
+				edgeConnections[shape.edges[ei]].insert(si);
 			}
 			segments.emplace_back(
 				Shape {FromVertices, faceVertices},
@@ -46,6 +34,11 @@ struct Net {
 				// The rest of the fields to be filled out once the parent
 				// is determined
 			);
+		}
+		// Construct graph.
+		for (auto [edge, segmentIndices] : edgeConnections) {
+			graph[segmentIndices[0]].emplace_back(segmentIndices[1], edge);
+			graph[segmentIndices[1]].emplace_back(segmentIndices[0], edge);
 		}
 		// Make all normals point outwards.
 		{
