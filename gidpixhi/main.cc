@@ -13,7 +13,7 @@ std::vector<Point> rotate(
 ) {
 	double sin = std::sqrt(1.0 - cos*cos);
 	double soc = 1.0 - cos;
-	Point const& u = axis.direction;
+	Point u = norm(axis.direction);
 	double const matrix[3][3] = {
 		{u.x*u.x*soc + 1.0*cos, u.x*u.y*soc - u.z*sin, u.x*u.z*soc + u.y*sin},
 		{u.x*u.y*soc + u.z*sin, u.y*u.y*soc + 1.0*cos, u.y*u.z*soc - u.x*sin},
@@ -129,7 +129,9 @@ struct Net {
 				points.insert(segments[si].polygon.vertices[vi]);
 			}
 			// Rotate segment
-			for (auto node=si; node!=NoParent; node=segments[node].parent) {
+			for (auto node = si
+			;    segments[node].parent != NoParent
+			;    node = segments[node].parent) {
 				auto newPoints = rotate(
 					points,
 					segments[node].axis,
