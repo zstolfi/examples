@@ -1,3 +1,5 @@
 *.o
 /font display/fontDisplay
 /project euler/solution*
+/gidpixhi/main
+/gidpixhi/*.ply

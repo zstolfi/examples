@@ -101,6 +101,11 @@ struct Net {
 				}
 			}
 		}
+		// Calculate the root's orientation. We will cancel this out later.
+		Point const Up {0, 0, 1};
+		segments[0].axis.origin = Point {0, 0, 0};
+		segments[0].axis.direction = cross(segments[0].normal, Up);
+		segments[0].cosAngle = dot(segments[0].normal, Up);
 		// For each non-root node, connect itself to its most upward neighbor.
 		for (SegmentIndex si=1; si<segments.size(); si++) {
 			auto parent = *std::max_element(
@@ -130,7 +135,7 @@ struct Net {
 			}
 			// Rotate segment
 			for (auto node = si
-			;    segments[node].parent != NoParent
+			;    node != NoParent
 			;    node = segments[node].parent) {
 				auto newPoints = rotate(
 					points,
@@ -187,6 +192,9 @@ PlyGeometry asPly(Shape const& shape) {
 	return asPly({&shape, std::size_t {1}});
 }
 
+#include <numbers>
+using std::numbers::phi;
+
 int main() {
 	Shape const cuboctahedron {
 		FromVertices,
@@ -206,7 +214,32 @@ int main() {
 		},
 	};
 
-//	writePly(std::cout, asPly(cuboctahedron));
-	Net net {cuboctahedron};
-	writePly(std::cout, asPly(net.interpolate(1)));
+	Shape const J91 { // Bilunabirotunda
+		FromVertices,
+		std::vector<Point> {
+			{0.0, 0.0, +1.0},
+			{0.0, 0.0, -1.0},
+			{phi-1.0, +1.0, phi-1.0},
+			{phi-1.0, +1.0, 1.0-phi},
+			{phi-1.0, -1.0, phi-1.0},
+			{phi-1.0, -1.0, 1.0-phi},
+			{1.0-phi, +1.0, phi-1.0},
+			{1.0-phi, +1.0, 1.0-phi},
+			{1.0-phi, -1.0, phi-1.0},
+			{1.0-phi, -1.0, 1.0-phi},
+			{+phi, phi-1.0, 0.0},
+			{+phi, 1.0-phi, 0.0},
+			{-phi, phi-1.0, 0.0},
+			{-phi, 1.0-phi, 0.0},
+		}
+	};
+	
+	Net net {J91};
+	std::vector<Shape> animation {};
+	for (int i=0; i<=60; i++) {
+		auto frame = net.interpolate(double(i) / 60);
+		for (Shape& s: frame) for (Point& p: s.vertices) p.y += i*10;
+		animation.insert(animation.end(), frame.begin(), frame.end());
+	}
+	writePly(std::cout, asPly(animation));
 }
