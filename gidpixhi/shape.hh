@@ -1,6 +1,6 @@
 #pragma once
 #include "math.hh"
-#include "orderedSet.hh"
+#include "uniqueVector.hh"
 #include <vector>
 #include <span>
 #include <map>
@@ -15,7 +15,7 @@ struct Shape {
 	using Vertex = Point;
 	using Edge = Set<VertexIndex>;
 	using Face = Set<EdgeIndex>;
-	Set<Vertex> vertices {};
+	UnorderedSet<Vertex> vertices {};
 	Set<Edge> edges {};
 	Set<Face> faces {};
 
@@ -25,7 +25,7 @@ struct Shape {
 		FromVertices_Arg,
 		std::span<Point const> points
 	) {
-		vertices = Set<Vertex> {points.begin(), points.end()};
+		vertices = UnorderedSet<Vertex> {points.begin(), points.end()};
 		// The edges are the nearest other vertices to any vertex.
 		for (VertexIndex i=0; i<vertices.size(); i++) {
 			// Order all vertices by distance (including self).
