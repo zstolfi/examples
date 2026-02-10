@@ -29,17 +29,42 @@ struct UniqueVector : std::vector<T> {
 		normalize();
 	}
 
-	void insert(T const& val) {
+	std::size_t insert(T const& val) {
 		std::vector<T>::insert(this->end(), val);
 		normalize();
+		// TODO: Avoid having to 'rediscover' the index.
+		if constexpr (Sorted) {
+			return std::distance(
+				this->begin(),
+				std::lower_bound(this->begin(), this->end(), val)
+			);
+		}
+		else {
+			return (this->size()-1) - std::distance(
+				this->rbegin(),
+				std::find(this->rbegin(), this->rend(), val)
+			);
+		}
 	}
 
-	void insert(std::size_t count, T const& val) {
-		if (count) insert(val);
+	void reassign(std::size_t i, T const& val) {
+		// TODO: Throw exception if 'val' disrupts set order, or uniqueness.
+		std::vector<T>::at(i) = val;
 	}
 
-	const T& operator[](std::size_t n) const {
-		return std::vector<T>::operator[](n);
+	auto erase(auto&& ... args) {
+		auto result = std::vector<T>::erase(args ... );
+		normalUntil = this->size();
+		return result;
+	}
+
+	void resize(auto&& ... args) {
+		std::vector<T>::resize(args ... );
+		normalUntil = this->size();
+	}
+
+	const T& operator[](std::size_t i) const {
+		return std::vector<T>::at(i);
 	}
 
 	bool contains(T const& val) const {
@@ -57,7 +82,7 @@ private:
 		}
 		else {
 			for (auto it=this->begin()+normalUntil; it!=this->end(); /**/) {
-				if (std::find(this->begin(), it-1, *it) != it-1) {
+				if (std::find(this->begin(), it, *it) != it) {
 					it = this->erase(it);
 				}
 				else ++it;
