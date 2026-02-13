@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <numeric>
 #include <iterator>
+#include <map>
 
 struct Ray { Point origin, direction; };
 // https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
@@ -57,9 +58,9 @@ struct Net {
 				}
 			}
 			segments.emplace_back(
-				Shape {FromVertices, faceVertices},
+				Shape {FromRegular, faceVertices},
 				faceEdges,
-				normal(faceVertices)
+				normalFromPlane(faceVertices)
 				// The rest of the fields to be filled out once the parent
 				// is determined.
 			);
@@ -91,7 +92,7 @@ struct Net {
 		// Construct graph.
 		struct Crossing { SegmentIndex si; Shape::Edge edge; };
 		std::map<SegmentIndex, std::vector<Crossing>> graph {};
-		for (SegmentIndex i=0; i<segments.size(); i++) {
+		for (SegmentIndex i=0; i<segments.size()-1; i++) {
 			for (SegmentIndex j=i+1; j<segments.size(); j++) {
 				for (auto edge: segments[i].edges) {
 					if (segments[j].edges.contains(edge)) {
@@ -103,8 +104,12 @@ struct Net {
 		}
 		// Calculate the root's orientation. We will cancel this out later.
 		Point const Up {0, 0, 1};
-		segments[0].axis.origin = Point {0, 0, 0};
-		segments[0].axis.direction = cross(segments[0].normal, Up);
+		Ray axis {
+			.origin = Point {0, 0, 0},
+			.direction = cross(segments[0].normal, Up),
+		};
+		if (axis.direction == axis.origin) axis.direction = Up;
+		segments[0].axis = axis;
 		segments[0].cosAngle = dot(segments[0].normal, Up);
 		// For each non-root node, connect itself to its most upward neighbor.
 		for (SegmentIndex si=1; si<segments.size(); si++) {
@@ -146,7 +151,7 @@ struct Net {
 				);
 				points = {newPoints.begin(), newPoints.end()};
 			}
-			result.emplace_back(FromVertices, points);
+			result.emplace_back(FromRegular, points);
 		}
 		return result;
 	}
@@ -156,8 +161,10 @@ PlyGeometry asPly(std::span<Shape const> shapes) {
 	PlyGeometry result {};
 	std::map<Shape::Vertex, uint32_t> indexOf {};
 	auto perVertex = [&](auto const& shape, auto const& v) {
-		indexOf[v] = result.vertices.size();
-		result.vertices.push_back({v.x, v.y, v.z});
+		if (!indexOf.contains(v)) {
+			indexOf[v] = result.vertices.size();
+			result.vertices.push_back({v.x, v.y, v.z});
+		}
 	};
 	auto perFace = [&](auto const& shape, auto const& f) {
 		std::vector<Shape::Vertex> vertices {};
@@ -197,7 +204,7 @@ using std::numbers::phi;
 
 int main() {
 	Shape const cuboctahedron {
-		FromVertices,
+		FromRegular,
 		std::vector<Point> {
 			{-1,  0, +1},
 			{ 0, -1, +1},
@@ -215,7 +222,7 @@ int main() {
 	};
 
 	Shape const J91 { // Bilunabirotunda
-		FromVertices,
+		FromRegular,
 		std::vector<Point> {
 			{0.0, 0.0, +1.0},
 			{0.0, 0.0, -1.0},
@@ -233,11 +240,40 @@ int main() {
 			{-phi, 1.0-phi, 0.0},
 		}
 	};
-	
-	Net net {J91};
+
+	Shape const dodecahedron {
+		FromRegular,
+		std::vector<Point> {
+			{+1.0, +1.0, +1.0},
+			{+1.0, +1.0, -1.0},
+			{+1.0, -1.0, +1.0},
+			{+1.0, -1.0, -1.0},
+			{-1.0, +1.0, +1.0},
+			{-1.0, +1.0, -1.0},
+			{-1.0, -1.0, +1.0},
+			{-1.0, -1.0, -1.0},
+			{0.0, +phi, phi-1.0},
+			{0.0, +phi, 1.0-phi},
+			{0.0, -phi, phi-1.0},
+			{0.0, -phi, 1.0-phi},
+			{phi-1.0, 0.0, +phi},
+			{phi-1.0, 0.0, -phi},
+			{1.0-phi, 0.0, +phi},
+			{1.0-phi, 0.0, -phi},
+			{+phi, phi-1.0, 0.0},
+			{+phi, 1.0-phi, 0.0},
+			{-phi, phi-1.0, 0.0},
+			{-phi, 1.0-phi, 0.0},
+		}
+	};
+
+//	writePly(std::cout, asPly(cuboctahedron));
+
+	Net net {dodecahedron};
 	std::vector<Shape> animation {};
-	for (int i=0; i<=60; i++) {
-		auto frame = net.interpolate(double(i) / 60);
+	constexpr int N = 12;
+	for (int i=0; i<=N; i++) {
+		auto frame = net.interpolate(double(i) / N);
 		for (Shape& s: frame) for (Point& p: s.vertices) p.y += i*10;
 		animation.insert(animation.end(), frame.begin(), frame.end());
 	}
