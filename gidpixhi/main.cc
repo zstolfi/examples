@@ -46,7 +46,7 @@ int main() {
 //		}
 //	};
 
-	using XYZ = std::array<double, 3>;
+	using XYZ = Coordinate<double, 3>;
 	std::vector<XYZ> pointList {
 		XYZ {+1, +1, +1},
 		XYZ {+1, -1, -1},
@@ -61,6 +61,22 @@ int main() {
 			std::cerr << "[" << x << ", " << y << ", " << z << "]\t";
 		}
 		std::cerr << "\n";
+	}
+
+	std::cerr << "Basis for tetrahedron:\n";
+	for (auto [x, y, z] : tetrahedron.greatest().frame()) {
+		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
+	}
+
+	std::cerr << "Basis for surface of last triangle:\n";
+	for (auto [x, y, z] : tetrahedron.facesOfRank(2).back().frame()) {
+		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
+	}
+
+	std::cerr << "Basis for a line on last triangle:\n";
+	auto lastTriangle = tetrahedron.facesOfRank(2).back();
+	for (auto [x, y, z] : lastTriangle.lesserFacesOfRank(1)[0].frame()) {
+		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
 	}
 
 	std::cout << PlyGeometry {

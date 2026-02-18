@@ -8,7 +8,6 @@
 #include <initializer_list>
 
 constexpr struct FromPointCloud_Arg {} FromPointCloud {};
-constexpr struct FromSimplex_Arg    {} FromSimplex    {};
 
 // https://en.wikipedia.org/wiki/Abstract_polytope
 template <class Coord>
@@ -17,7 +16,16 @@ struct Polytope {
 		int rank;
 		std::set<Coord const*> coordRefs;
 		auto operator<=>(Face const&) const = default;
+		Face(decltype(rank) r=-1, decltype(coordRefs) cr={})
+		: rank{r}, coordRefs{cr} {}
 
+	private:
+		friend struct Polytope;
+		Polytope* parent = nullptr;
+		Face(Polytope* that, decltype(rank) r=-1, decltype(coordRefs) cr={})
+		: rank{r}, coordRefs{cr}, parent{that} {}
+
+	public:
 		// All points which touch 'this'.
 		std::vector<Coord> points() const {
 			std::vector<Coord> result {};
@@ -25,11 +33,33 @@ struct Polytope {
 			return result;
 		}
 
+		// All sub-faces which belong to 'this'.
+		std::vector<Face> lesserFacesOfRank(int rank) {
+			std::vector<Face> result {};
+			for (Face const& f : parent->facesOfRank(rank)) {
+				if (stdr::includes(coordRefs, f.coordRefs)) {
+					result.push_back(f);
+				}
+			}
+			return result;
+		}
+
+		// All faces 'this' is a sub-face of.
+		std::vector<Face> greaterFacesOfRank(int rank) {
+			std::vector<Face> result {};
+			for (Face const& f : parent->facesOfRank(rank)) {
+				if (stdr::includes(f.coordRefs, coordRefs)) {
+					result.push_back(f);
+				}
+			}
+			return result;
+		}
+
 		// A simplex which lives entirely in 'this'.
 		std::vector<Coord> simplex() const {
-			std::vector<Coord> result (rank+1, {});
+			std::vector<Coord> result (rank+1);
 			std::size_t i = 0;
-			for (int i=0; Coord const* c : coordRefs) {
+			for (i=0; Coord const* c : coordRefs) {
 				result[i] = *c;
 				if (1 /*affinelyIndependent(i, result | stdv::take(i+1))*/) {
 					if (++i == rank+1) break;
@@ -40,6 +70,13 @@ struct Polytope {
 		}
 
 		// Point which lives inside 'this', but not on the boundary.
+		Coord inside() const {
+			Coord sum {};
+			for (Coord c : simplex()) sum += c;
+			return sum / (rank+1);
+		}
+
+		// Same as inside(), but more symmetric and potentially expensive.
 		Coord center() const {
 			Coord sum {};
 			for (Coord const* c : coordRefs) sum += *c;
@@ -48,8 +85,7 @@ struct Polytope {
 
 		// Basis coordinates for the space defined by 'this'.
 		std::vector<Coord> frame() const {
-//			return orthonormal(simplex());
-			return {/* TODO */};
+			return orthonormalize(FromSimplex, simplex());
 		};
 
 		// Direction orthogonal to 'this' facing away from the parent's center.
@@ -67,7 +103,7 @@ struct Polytope {
 	};
 
 	std::set<Face> faces {
-		{-1, {}} // Every abstract polytope has the emtpy set.
+		{this, -1, {}} // Every abstract polytope has the emtpy set.
 	};
 
 	Polytope() = default;
@@ -76,7 +112,7 @@ struct Polytope {
 	Polytope(FromPointCloud_Arg, R&& input)
 	: coordinates{stdr::begin(input), stdr::end(input)} {
 		for (Coord const& c : coordinates) {
-			faces.insert({0, {&c}});
+			faces.insert({this, 0, {&c}});
 		}
 	}
 
@@ -88,7 +124,7 @@ struct Polytope {
 			for (unsigned i=0; Coord const& c : coordinates) {
 				if ((bits >> i++) & 1) subset.insert(&c);
 			}
-			faces.insert({std::popcount(bits)-1, subset});
+			faces.insert({this, std::popcount(bits)-1, subset});
 		}
 	}
 

@@ -3,12 +3,16 @@
 #include <cmath>
 #include <algorithm>
 #include <array>
+#include <vector>
 #include <concepts>
+#include <type_traits>
 #include <initializer_list>
 #include <cassert>
 #include <ranges>
 namespace stdr = std::ranges;
 namespace stdv = std::views;
+
+constexpr struct FromSimplex_Arg {} FromSimplex {};
 
 template <class T>
 concept Arithmetic = requires(T a, T b) {
@@ -84,12 +88,12 @@ public:
 		return *this;
 	}
 
-	friend Coordinate operator*(Coordinate const& lhs, T scalar) {
+	friend Coordinate operator*(Coordinate lhs, T scalar) {
 		lhs *= scalar;
 		return lhs;
 	}
 
-	friend Coordinate operator*(T scalar, Coordinate const& rhs) {
+	friend Coordinate operator*(T scalar, Coordinate rhs) {
 		rhs *= scalar;
 		return rhs;
 	}
@@ -111,12 +115,9 @@ public:
 	}
 
 	// Acts like the Hodge star on an (N-1)-vector defined by our input.
-	template <std::convertible_to<Coordinate> ... C>
-	friend Coordinate orthogonal(C ... args) requires(sizeof ... (C) == N) {
-		std::array<Coordinate, N> input {static_cast<Coordinate>(args) ... };
-		// Choose a point to be our origin.
-		std::array<Coordinate, N-1> relative {};
-		for (std::size_t i=0; i<N-1; i++) relative[i] = input[i+1] - input[0];
+	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	friend Coordinate orthogonal(R&& input) {
+		assert(stdr::size(input) == N-1);
 		// Generalized determinate definition of the cross product.
 		Coordinate result {};
 		for (std::size_t i=0; i<N; i++) {
@@ -127,9 +128,9 @@ public:
 			do {
 				bool parity = false;
 				T product {1};
-				for (std::size_t j=0; j<N-1; j++) {
-					product *= relative[j][indexOrder[j]];
-					if (j < N-2) parity ^= indexOrder[j] > indexOrder[j+1];
+				for (std::size_t j=0; auto const& coord : input) {
+					product *= coord[indexOrder[j++]];
+					if (j < N-1) parity ^= indexOrder[j-1] > indexOrder[j];
 				}
 				sum += parity? -product: product;
 			} while (stdr::next_permutation(indexOrder).found);
@@ -138,6 +139,46 @@ public:
 		return result;
 	}
 
+	// Gram-Schmidt orthonormalization
+	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	friend std::vector<Coordinate> orthonormalize(R&& input) {
+		assert(stdr::size(input) <= N);
+		std::vector<Coordinate> result {stdr::begin(input), stdr::end(input)};
+		for (std::size_t i=0; i<result.size(); i++) {
+			for (std::size_t j=i+1; j<result.size(); j++) {
+				result[j] -= project(result[i], result[j]);
+			}
+		}
+//		for (Coordinate& basis : result) basis /= length(basis);
+		return result;
+	}
+
+	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	friend Coordinate orthogonal(FromSimplex_Arg, R&& input) {
+		return orthogonal(fromSimplex(input));
+	}
+
+	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	friend std::vector<Coordinate> orthonormalize(FromSimplex_Arg, R&& input) {
+		return orthonormalize(fromSimplex(input));
+	}
+
+private:
+	template <stdr::input_range R>
+	static std::vector<Coordinate> fromSimplex(R&& input) {
+		assert(stdr::size(input) <= N+1);
+		std::vector<Coordinate> result {};
+		for (Coordinate c : input | stdv::drop(1)) {
+			result.push_back(c - *stdr::begin(input));
+		}
+		return result;
+	}
+
+	static inline Coordinate project(Coordinate u, Coordinate v) {
+		return dot(v, u) / dot(u, u) * u;
+	}
+
+public:
 	using value_type = T;
 	static constexpr std::size_t dimension = N;
 
@@ -155,4 +196,4 @@ struct std::tuple_size<Coordinate<T, N>>
 
 template <std::size_t I, Arithmetic T, std::size_t N>
 struct std::tuple_element<I, Coordinate<T, N>>
-: T { static_assert(I < N); };
+: std::type_identity<T> { static_assert(I < N); };
