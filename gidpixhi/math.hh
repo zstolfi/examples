@@ -25,6 +25,29 @@ concept Arithmetic = requires(T a, T b) {
 	{a /= b}; {a / b} -> std::convertible_to<double>;
 };
 
+template <
+	stdr::input_range R1, stdr::input_range R2, class F,
+	class T = std::invoke_result_t<F, std::size_t, std::size_t>
+>
+T determinant(R1&& rows, R2&& cols, F&& elementAccess) {
+	assert(stdr::size(rows) == stdr::size(cols));
+	std::size_t const N = stdr::size(rows);
+	T sum {0};
+	// Iterate permutations.
+	std::vector<std::size_t> perm (N);
+	for (std::size_t i=0; i<N; i++) perm[i] = i;
+	do {
+		T product {1};
+		bool parity = false;
+		for (std::size_t i=0; i<N; i++) {
+			product *= elementAccess(rows[i], cols[perm[i]]);
+			if (i < N-1) parity ^= perm[i] > perm[i+1];
+		}
+		sum += parity? -product: product;
+	} while (stdr::next_permutation(perm).found);
+	return sum;
+}
+
 template <Arithmetic T, std::size_t N>
 class Coordinate {
 	std::array<T, N> components {};
@@ -114,27 +137,26 @@ public:
 		return result;
 	}
 
+	friend T length(Coordinate const& c) {
+		// TODO: Figure out sqrt with custom types.
+		return std::sqrt(dot(c, c));
+	}
+
 	// Acts like the Hodge star on an (N-1)-vector defined by our input.
 	template <stdr::input_range R=std::initializer_list<Coordinate>>
 	friend Coordinate orthogonal(R&& input) {
 		assert(stdr::size(input) == N-1);
-		// Generalized determinate definition of the cross product.
+		std::vector<Coordinate> matrix {stdr::begin(input), stdr::end(input)};
+		// Generalized determinant definition of the cross product.
 		Coordinate result {};
 		for (std::size_t i=0; i<N; i++) {
-			std::array<std::size_t, N-1> indexOrder {};
-			for (std::size_t j=0; j<N-1; j++) indexOrder[j] = j + (j>=i);
-			T sum {0};
-			// Iterate permutations.
-			do {
-				bool parity = false;
-				T product {1};
-				for (std::size_t j=0; auto const& coord : input) {
-					product *= coord[indexOrder[j++]];
-					if (j < N-1) parity ^= indexOrder[j-1] > indexOrder[j];
-				}
-				sum += parity? -product: product;
-			} while (stdr::next_permutation(indexOrder).found);
-			result[i] = (N%2 == i%2)? -sum: sum;
+			auto skip_i = [=](auto j) { return j + (j>=i); };
+			result[i] = determinant(
+				stdv::iota(0u, N-1),
+				stdv::iota(0u, N-1) | stdv::transform(skip_i),
+				[&](auto i, auto j) { return matrix[i][j]; }
+			);
+			result[i] *= (N%2 == i%2)? -1: 1;
 		}
 		return result;
 	}
@@ -149,7 +171,7 @@ public:
 				result[j] -= project(result[i], result[j]);
 			}
 		}
-//		for (Coordinate& basis : result) basis /= length(basis);
+		for (Coordinate& basis : result) basis /= length(basis);
 		return result;
 	}
 
