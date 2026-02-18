@@ -18,17 +18,17 @@ struct PlyGeometry {
 	template <class Point>
 	PlyGeometry(Polytope<Point> const& polytope, auto&& getXYZ) {
 		std::map<Vertex, uint32_t> indexOf {};
-		for (auto vertex : polytope.getFaces(0)) {
-			for (auto point : vertex.points) {
-				Vertex v = getXYZ(*point);
+		for (auto vertex : polytope.facesOfRank(0)) {
+			for (auto point : vertex.points()) {
+				Vertex v = getXYZ(point);
 				indexOf[v] = vertices.size();
 				vertices.push_back(v);
 			}
 		}
-		for (auto face : polytope.getFaces(2)) {
+		for (auto face : polytope.facesOfRank(2)) {
 			// Get point locations.
 			std::vector<Vertex> v {};
-			for (auto point : face.points) v.push_back(getXYZ(*point));
+			for (auto point : face.points()) v.push_back(getXYZ(point));
 			// Sort the points cyclically.
 			stdr::partial_sort(v, v.begin()+1);
 			stdr::sort(v.begin()+2, v.end(), stdr::greater {},

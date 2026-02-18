@@ -1,84 +1,158 @@
 #pragma once
+#include <iostream>
 #include <cmath>
-#include <span>
+#include <algorithm>
+#include <array>
+#include <concepts>
+#include <initializer_list>
+#include <cassert>
+#include <ranges>
+namespace stdr = std::ranges;
+namespace stdv = std::views;
 
-// TODO: allow any numeric type in place of 'double'
-struct Point {
-	double x {}, y {}, z {};
-	auto operator<=>(Point const&) const = default;
-	Point operator-() { return Point {-x, -y, -z}; }
+template <class T>
+concept Arithmetic = requires(T a, T b) {
+	(double)a;
+	a <=> b;
+	{-a} -> std::convertible_to<T>;
+	{a += b}; {a + b} -> std::convertible_to<T>;
+	{a -= b}; {a - b} -> std::convertible_to<T>;
+	{a *= b}; {a * b} -> std::convertible_to<T>;
+	{a /= b}; {a / b} -> std::convertible_to<double>;
 };
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-// TODO: clean this section up.
+template <Arithmetic T, std::size_t N>
+class Coordinate {
+	std::array<T, N> components {};
 
-Point scale(Point v, double s) {
-	return {v.x*s, v.y*s, v.z*s};
-}
+public:
+	auto operator<=>(Coordinate const&) const = default;
+	T const& operator[](std::size_t i) const { return components.at(i); }
+	T /* */& operator[](std::size_t i) /* */ { return components.at(i); }
 
-Point add(Point a, Point b) {
-	return {a.x+b.x, a.y+b.y, a.z+b.z};
-}
+	template <std::convertible_to<T> ... Ts>
+	Coordinate(Ts ... args) requires (sizeof ... (Ts) == N) {
+		components = {static_cast<T>(args) ... };
+	}
 
-Point sub(Point a, Point b) {
-	return {a.x-b.x, a.y-b.y, a.z-b.z};
-}
+	template <stdr::input_range R=std::initializer_list<T>>
+	Coordinate(R&& input) {
+		assert(stdr::size(input) == N);
+		stdr::copy(input, stdr::data(components));
+	}
 
-double dot(Point a, Point b) {
-	return a.x*b.x + a.y*b.y + a.z*b.z;
-}
+	Coordinate() = default;
+	Coordinate(Coordinate const& ) = default;
+	Coordinate(Coordinate /* */&&) = default;
+	Coordinate& operator=(Coordinate const& ) = default;
+	Coordinate& operator=(Coordinate /* */&&) = default;
 
-double dot2(Point v) {
-	return v.x*v.x + v.y*v.y + v.z*v.z;
-}
+	Coordinate operator+() {
+		Coordinate result {*this};
+		for (std::size_t i=0; i<N; i++) result[i] = +result[i];
+		return result;
+	}
 
-double distanceSquared(Point a, Point b) {
-	Point d = sub(a, b);
-	return d.x*d.x + d.y*d.y + d.z*d.z;
-}
+	Coordinate operator-() {
+		Coordinate result {*this};
+		for (std::size_t i=0; i<N; i++) result[i] = -result[i];
+		return result;
+	}
 
-double distance(Point a, Point b) {
-	return std::sqrt(distanceSquared(a, b));
-}
+	Coordinate& operator+=(Coordinate const& rhs) {
+		for (std::size_t i=0; i<N; i++) (*this)[i] += rhs[i];
+		return *this;
+	}
 
-double length(Point v) {
-	return distance(v, {0, 0, 0});
-}
+	friend Coordinate operator+(Coordinate lhs, Coordinate const& rhs) {
+		lhs += rhs;
+		return lhs;
+	}
 
-Point norm(Point v) {
-	return scale(v, 1/length(v));
-}
+	Coordinate& operator-=(Coordinate const& rhs) {
+		for (std::size_t i=0; i<N; i++) (*this)[i] -= rhs[i];
+		return *this;
+	}
 
-Point cross(Point a, Point b) {
-	return sub(
-		{a.y*b.z, a.z*b.x, a.x*b.y},
-		{a.z*b.y, a.x*b.z, a.y*b.x}
-	);
-}
+	friend Coordinate operator-(Coordinate lhs, Coordinate const& rhs) {
+		lhs -= rhs;
+		return lhs;
+	}
 
-Point normalFromPlane(std::span<Point const> points) {
-	Point a = sub(points[0], points[2]);
-	Point b = sub(points[1], points[2]);
-	return norm(cross(a, b));
-}
+	Coordinate& operator*=(T scalar) {
+		for (std::size_t i=0; i<N; i++) (*this)[i] *= scalar;
+		return *this;
+	}
 
-// Distance squared.
-double measure1D(Point v0, Point v1) {
-	Point a = sub(v0, v1);
-	return dot(a, a);
-}
+	friend Coordinate operator*(Coordinate const& lhs, T scalar) {
+		lhs *= scalar;
+		return lhs;
+	}
 
-// 4 x Area of triangle squared
-double measure2D(Point v0, Point v1, Point v2) {
-	Point a = sub(v0, v1), b = sub(v0, v2);
-	return dot(a, a) * dot(b, b)
-	-      dot(a, b) * dot(b, a);
-}
+	friend Coordinate operator*(T scalar, Coordinate const& rhs) {
+		rhs *= scalar;
+		return rhs;
+	}
 
-// 36 x Volume of tetrahedron squared
-double measure3D(Point v0, Point v1, Point v2, Point v3) {
-	Point a = sub(v0, v1), b = sub(v0, v2), c = sub(v0, v3);
-	return dot(a, a) * (dot(b, b)*dot(c, c) - dot(b, c)*dot(c, b))
-	-      dot(a, b) * (dot(b, a)*dot(c, c) - dot(b, c)*dot(c, a))
-	+      dot(a, c) * (dot(b, a)*dot(c, b) - dot(b, b)*dot(c, a));
-}
+	Coordinate& operator/=(T scalar) {
+		for (std::size_t i=0; i<N; i++) (*this)[i] /= scalar;
+		return *this;
+	}
+
+	friend Coordinate operator/(Coordinate const& lhs, T scalar) {
+		lhs /= scalar;
+		return lhs;
+	}
+
+	friend T dot(Coordinate const& lhs, Coordinate const& rhs) {
+		T result {0};
+		for (std::size_t i=0; i<N; i++) result += lhs[i] * rhs[i];
+		return result;
+	}
+
+	// Acts like the Hodge star on an (N-1)-vector defined by our input.
+	template <std::convertible_to<Coordinate> ... C>
+	friend Coordinate orthogonal(C ... args) requires(sizeof ... (C) == N) {
+		std::array<Coordinate, N> input {static_cast<Coordinate>(args) ... };
+		// Choose a point to be our origin.
+		std::array<Coordinate, N-1> relative {};
+		for (std::size_t i=0; i<N-1; i++) relative[i] = input[i+1] - input[0];
+		// Generalized determinate definition of the cross product.
+		Coordinate result {};
+		for (std::size_t i=0; i<N; i++) {
+			std::array<std::size_t, N-1> indexOrder {};
+			for (std::size_t j=0; j<N-1; j++) indexOrder[j] = j + (j>=i);
+			T sum {0};
+			// Iterate permutations.
+			do {
+				bool parity = false;
+				T product {1};
+				for (std::size_t j=0; j<N-1; j++) {
+					product *= relative[j][indexOrder[j]];
+					if (j < N-2) parity ^= indexOrder[j] > indexOrder[j+1];
+				}
+				sum += parity? -product: product;
+			} while (stdr::next_permutation(indexOrder).found);
+			result[i] = (N%2 == i%2)? -sum: sum;
+		}
+		return result;
+	}
+
+	using value_type = T;
+	static constexpr std::size_t dimension = N;
+
+	template <std::size_t I>
+	friend auto&& get(Coordinate const&  c) { return c.components[I]; }
+	template <std::size_t I>
+	friend auto&& get(Coordinate /* */&  c) { return c.components[I]; }
+	template <std::size_t I>
+	friend auto&& get(Coordinate /* */&& c) { return c.components[I]; }
+};
+
+template <Arithmetic T, std::size_t N>
+struct std::tuple_size<Coordinate<T, N>>
+: std::integral_constant<size_t, N> {};
+
+template <std::size_t I, Arithmetic T, std::size_t N>
+struct std::tuple_element<I, Coordinate<T, N>>
+: T { static_assert(I < N); };
