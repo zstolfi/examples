@@ -85,21 +85,50 @@ struct Polytope {
 
 		// Basis coordinates for the space defined by 'this'.
 		std::vector<Coord> frame() const {
+			// TODO: Make the bases respect the RHR with the normal.
 			return orthonormalize(FromSimplex, simplex());
 		};
 
-		// Direction orthogonal to 'this' facing away from the parent's center.
-		Coord normal(Face const& parent) const {
-			// This will be the most complicated to compute. We'll need to
-			// traverse the flag defined by the greatest face and the parent.
-			// We'll keep track of 'this's simplex as a set of k+1 N-D vectors,
-			// with each projection downards we lose a dimension until we have
-			// k+1 points in k+1 dimensions living on the parent's space. From
-			// there we find the normal using the k+1 analog of the cross
-			// product, projecting upwards after until we get out desired N-D
-			// vector (up to inversion).
-			return {/* TODO */};
+		// Direction orthogonal to 'this' facing away from greater's center.
+		Coord normal(Face const& greater) const {
+			assert(rank < Coord::dimension);
+			// We use a LUT of member function pointers to have our run-time
+			// variable 'rank' act as a compile-time template parameter.
+			return (this->*normal_tab[rank])(greater);
 		}
+
+	private:
+		template <std::size_t K, std::size_t N=Coord::dimension>
+		Coord normal_impl(Face const& greater) const {
+			using SubCoord = Coord::template WithDimension<K+1>;
+			// Make sure 'this' is a facet of greater.
+			assert(greater.rank == K+1 && rank == K);
+			assert(stdr::includes(greater.coordRefs, coordRefs));
+			// This lower dimensional simplex will define our normal.
+			std::vector<Coord> embeddedSimplex = simplex();
+			// Matrices for projecting downwards, then upwards.
+			Matrix<typename Coord::value_type, K+1, N> matrix {greater.frame()};
+			// Project downwards.
+			std::vector<SubCoord> projectedSimplex {};
+			for (Coord c : embeddedSimplex) {
+				projectedSimplex.push_back(matrix * c);
+			}
+			// Find orthogonal.
+			SubCoord embeddedResult = orthogonal(FromSimplex, projectedSimplex);
+			// Project back up.
+			Coord result = matrix.transpose() * embeddedResult;
+			result /= length(result);
+			// Point away from greater's center.
+			bool facingInside = dot(result, inside()-greater.inside()) < 0;
+			return facingInside? -result: result;
+		}
+
+		// Instantiate normal_impl<0> ... normal_impl<N-1>.
+		static constexpr auto normal_tab =
+			[]<std::size_t ... I>(std::index_sequence<I ... >) {
+				return std::array {&Face::normal_impl<I> ... };
+			} (std::make_index_sequence<Coord::dimension> {})
+		;
 	};
 
 	std::set<Face> faces {

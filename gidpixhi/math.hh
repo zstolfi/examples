@@ -12,7 +12,11 @@
 namespace stdr = std::ranges;
 namespace stdv = std::views;
 
+/* ~~ API Tags ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 constexpr struct FromSimplex_Arg {} FromSimplex {};
+
+/* ~~ Concepts ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 template <class T>
 concept Arithmetic = requires(T a, T b) {
@@ -25,6 +29,9 @@ concept Arithmetic = requires(T a, T b) {
 	{a /= b}; {a / b} -> std::convertible_to<double>;
 };
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+// TODO: Merge this with the Matrix class.
 template <
 	stdr::input_range R1, stdr::input_range R2, class F,
 	class T = std::invoke_result_t<F, std::size_t, std::size_t>
@@ -48,17 +55,20 @@ T determinant(R1&& rows, R2&& cols, F&& elementAccess) {
 	return sum;
 }
 
+/* ~~ Coordinate Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+// TODO: move the type T to the end and have it default to double.
 template <Arithmetic T, std::size_t N>
 class Coordinate {
 	std::array<T, N> components {};
 
 public:
 	auto operator<=>(Coordinate const&) const = default;
-	T const& operator[](std::size_t i) const { return components.at(i); }
-	T /* */& operator[](std::size_t i) /* */ { return components.at(i); }
+	auto const& operator[](std::size_t i) const { return components.at(i); }
+	auto /* */& operator[](std::size_t i) /* */ { return components.at(i); }
 
 	template <std::convertible_to<T> ... Ts>
-	Coordinate(Ts ... args) requires (sizeof ... (Ts) == N) {
+	Coordinate(Ts ... args) requires(sizeof ... (Ts) == N) {
 		components = {static_cast<T>(args) ... };
 	}
 
@@ -126,7 +136,7 @@ public:
 		return *this;
 	}
 
-	friend Coordinate operator/(Coordinate const& lhs, T scalar) {
+	friend Coordinate operator/(Coordinate lhs, T scalar) {
 		lhs /= scalar;
 		return lhs;
 	}
@@ -204,6 +214,9 @@ public:
 	using value_type = T;
 	static constexpr std::size_t dimension = N;
 
+	template <std::size_t M>
+	using WithDimension = Coordinate<T, M>;
+
 	template <std::size_t I>
 	friend auto&& get(Coordinate const&  c) { return c.components[I]; }
 	template <std::size_t I>
@@ -219,3 +232,48 @@ struct std::tuple_size<Coordinate<T, N>>
 template <std::size_t I, Arithmetic T, std::size_t N>
 struct std::tuple_element<I, Coordinate<T, N>>
 : std::type_identity<T> { static_assert(I < N); };
+
+/* ~~ Matrix Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+template <Arithmetic T, std::size_t M, std::size_t N>
+class Matrix {
+	std::array<Coordinate<T, N>, M> elements {};
+
+public:
+	auto operator<=>(Matrix const&) const = default;
+	auto const& operator[](std::size_t i) const { return elements.at(i); }
+	auto /* */& operator[](std::size_t i) /* */ { return elements.at(i); }
+
+	template <stdr::input_range R>
+	Matrix(R&& input) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			elements[i][j] = input[i][j];
+		}
+	}
+
+	Matrix() = default;
+	Matrix(Matrix const& ) = default;
+	Matrix(Matrix /* */&&) = default;
+	Matrix& operator=(Matrix const& ) = default;
+	Matrix& operator=(Matrix /* */&&) = default;
+
+	Matrix<T, N, M> transpose() const {
+		Matrix<T, N, M> result {};
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			result[j][i] = (*this)[i][j];
+		}
+		return result;
+	}
+
+	friend Coordinate<T, M> operator*(Matrix const& m, Coordinate<T, N> c) {
+		Coordinate<T, M> result {};
+		for (std::size_t i=0; i<M; i++) {
+			result[i] = dot(m[i], c);
+		}
+		return result;
+	}
+
+	// This linear algebra class is a stub. You can help zstolfi by expanding it.
+};

@@ -73,9 +73,16 @@ int main() {
 		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
 	}
 
-	std::cerr << "Basis for a line on last triangle:\n";
+	std::cerr << "Normals of all triangles:\n";
+	for (auto face : tetrahedron.facesOfRank(2)) {
+		auto [x, y, z] = face.normal(tetrahedron.greatest());
+		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
+	}
+
+	std::cerr << "Normals for 3 edges relative to last triangle:\n";
 	auto lastTriangle = tetrahedron.facesOfRank(2).back();
-	for (auto [x, y, z] : lastTriangle.lesserFacesOfRank(1)[0].frame()) {
+	for (auto edge : lastTriangle.lesserFacesOfRank(1)) {
+		auto [x, y, z] = edge.normal(lastTriangle);
 		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
 	}
 
