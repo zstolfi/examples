@@ -45,6 +45,7 @@ struct PlyGeometry {
 		}
 	}
 
+	// TODO: write istream parser.
 	friend std::ostream& operator<<(std::ostream& os, PlyGeometry const& data) {
 		os << "ply\n";
 		if (auto endian = getEndian()) {

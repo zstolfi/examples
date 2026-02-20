@@ -35,6 +35,19 @@ concept RangeOf = stdr::input_range<T>
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+template <stdr::input_range R>
+bool permutationParity(R&& perm) {
+	// https://stackoverflow.com/a/79832177
+	assert(stdr::size(perm) <= 8*sizeof(unsigned));
+	unsigned count {}, mask {};
+	for (unsigned i : perm) {
+		unsigned bit = 1 << i;
+		if (mask & bit) count++;
+		mask ^= bit - 1;
+	}
+	return count % 2;
+}
+
 // TODO: Merge this with the Matrix class.
 template <
 	stdr::input_range R1, stdr::input_range R2, class F,
@@ -49,12 +62,10 @@ T determinant(R1&& rows, R2&& cols, F&& elementAccess) {
 	for (std::size_t i=0; i<N; i++) perm[i] = i;
 	do {
 		T product {1};
-		bool parity = false;
 		for (std::size_t i=0; i<N; i++) {
 			product *= elementAccess(rows[i], cols[perm[i]]);
-			if (i < N-1) parity ^= perm[i] > perm[i+1];
 		}
-		sum += parity? -product: product;
+		sum += permutationParity(perm)? -product: product;
 	} while (stdr::next_permutation(perm).found);
 	return sum;
 }
