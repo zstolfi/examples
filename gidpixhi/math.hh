@@ -2,8 +2,11 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
+#include <iterator>
 #include <array>
 #include <vector>
+#include <set>
 #include <concepts>
 #include <type_traits>
 #include <initializer_list>
@@ -20,7 +23,8 @@ constexpr struct FromSimplex_Arg {} FromSimplex {};
 
 template <class T>
 concept Arithmetic = requires(T a, T b) {
-	(double)a;
+	T(double());
+	double(T());
 	a <=> b;
 	{-a} -> std::convertible_to<T>;
 	{a += b}; {a + b} -> std::convertible_to<T>;
@@ -28,6 +32,9 @@ concept Arithmetic = requires(T a, T b) {
 	{a *= b}; {a * b} -> std::convertible_to<T>;
 	{a /= b}; {a / b} -> std::convertible_to<double>;
 };
+
+template <Arithmetic T>
+constexpr T Epsilon = T(1e-6);
 
 template <class T, class U>
 concept RangeOf = stdr::input_range<T>
@@ -68,6 +75,19 @@ T determinant(R1&& rows, R2&& cols, F&& elementAccess) {
 		sum += permutationParity(perm)? -product: product;
 	} while (stdr::next_permutation(perm).found);
 	return sum;
+}
+
+template <class T>
+std::set<T> unite(std::set<T> lhs, std::set<T> const& rhs) {
+	for (T const& x : rhs) lhs.insert(x);
+	return lhs;
+}
+
+template <class T>
+std::set<T> intersect(std::set<T> const& lhs, std::set<T> const& rhs) {
+	std::set<T> result {};
+	for (T const& x : lhs) if (rhs.contains(x)) result.insert(x);
+	return result;
 }
 
 /* ~~ Coordinate Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -162,16 +182,31 @@ public:
 		return result;
 	}
 
-	friend T length(Coordinate const& c) {
-		// TODO: Figure out sqrt with custom types.
-		return std::sqrt(dot(c, c));
+	// Equivalent to measureSquared({c}).
+	friend T lengthSquared(Coordinate const& c) {
+		return dot(c, c);
 	}
 
-	// Gram determinant.
+	friend T length(Coordinate const& c) {
+		// TODO: Figure out sqrt with custom types.
+		return std::sqrt(lengthSquared(c));
+	}
+
+	// Equivalent to measureSquared(FromSimplex, {c, d}).
+	friend T distanceSquared(Coordinate const& c, Coordinate const& d) {
+		return lengthSquared(c - d);
+	}
+
+	friend T distance(Coordinate const& c, Coordinate const& d) {
+		return length(c - d);
+	}
+
+	// K-volume² of parallelotope defined by our input.
 	template <RangeOf<Coordinate> R>
 	friend T measureSquared(R&& input) {
 		std::size_t k = stdr::size(input);
 		assert(k <= N);
+		// Gramian.
 		return determinant(
 			stdv::iota(0u, k),
 			stdv::iota(0u, k),
@@ -179,7 +214,6 @@ public:
 		);
 	}
 
-	// 1-distance, 2-area, 3-volume ... of parallelotope defined by our input.
 	template <RangeOf<Coordinate> R>
 	friend T measure(R&& input) {
 		return std::sqrt(measureSquared(input));
@@ -191,7 +225,6 @@ public:
 		return measureSquared(input) / (factorial(N) * factorial(N));
 	}
 
-	// Same as above, but for a simplicial corner of the parallelotope.
 	template <RangeOf<Coordinate> R>
 	friend T volume(R&& input) {
 		return std::sqrt(measureSquared(input)) / factorial(N);
@@ -199,9 +232,9 @@ public:
 
 	// Generalized collinearity, coplanarity, etc.
 	template <RangeOf<Coordinate> R>
-	friend bool independent(R&& input, T tolerance=1e-6) {
+	friend bool independent(R&& input, T eps=Epsilon<T>) {
 		if (stdr::size(input) > N) return false;
-		return measureSquared(input) > tolerance*tolerance;
+		return measureSquared(input) > eps*eps;
 	}
 
 	// Acts like the Hodge star on an (N-1)-vector defined by our input.
@@ -260,8 +293,8 @@ public:
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend bool independent(FromSimplex_Arg, R&& input, T tolerance=1e-6) {
-		return independent(fromSimplex(input), tolerance);
+	friend bool independent(FromSimplex_Arg, R&& input, T eps=Epsilon<T>) {
+		return independent(fromSimplex(input), eps);
 	}
 
 	template <RangeOf<Coordinate> R>

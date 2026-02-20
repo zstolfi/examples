@@ -2,16 +2,22 @@
 #include "math.hh"
 #include <tuple>
 #include <set>
+#include <map>
 #include <list>
 #include <vector>
 #include <bit>
 #include <initializer_list>
 
 constexpr struct FromPointCloud_Arg {} FromPointCloud {};
+constexpr struct FromRegular_Arg    {} FromRegular    {};
 
 // https://en.wikipedia.org/wiki/Abstract_polytope
 template <class Coord>
 struct Polytope {
+protected:
+	std::list<Coord> coordinates {};
+
+public:
 	struct Face {
 		int rank;
 		std::set<Coord const*> coordRefs;
@@ -34,9 +40,9 @@ struct Polytope {
 		}
 
 		// All sub-faces which belong to 'this'.
-		std::vector<Face> lesserFacesOfRank(int rank) {
+		std::vector<Face> lesserFacesOfRank(int otherRank) const {
 			std::vector<Face> result {};
-			for (Face const& f : parent->facesOfRank(rank)) {
+			for (Face const& f : parent->facesOfRank(otherRank)) {
 				if (stdr::includes(coordRefs, f.coordRefs)) {
 					result.push_back(f);
 				}
@@ -45,11 +51,26 @@ struct Polytope {
 		}
 
 		// All faces 'this' is a sub-face of.
-		std::vector<Face> greaterFacesOfRank(int rank) {
+		std::vector<Face> greaterFacesOfRank(int otherRank) const {
 			std::vector<Face> result {};
-			for (Face const& f : parent->facesOfRank(rank)) {
+			for (Face const& f : parent->facesOfRank(otherRank)) {
 				if (stdr::includes(f.coordRefs, coordRefs)) {
 					result.push_back(f);
+				}
+			}
+			return result;
+		}
+
+		std::vector<Face> neighbors() const {
+			std::vector<Face> result {};
+			std::vector<Face> ridges = lesserFacesOfRank(rank-1);
+			for (Face const& f : parent->facesOfRank(rank)) {
+				if (f == *this) continue;
+				for (Face const& r : ridges) {
+					if (stdr::includes(f.coordRefs, r.coordRefs)) {
+						result.push_back(f);
+						break;
+					}
 				}
 			}
 			return result;
@@ -137,6 +158,28 @@ struct Polytope {
 
 	Polytope() = default;
 
+	std::vector<Face> facesOfRank(int rank) const {
+		return {
+			faces.lower_bound({rank}),
+			faces.upper_bound({rank+1}),
+		};
+	}
+
+//	// Equivalent to facesOfRank(k).size().
+//	std::size_t faceCountOfRank(int rank) const {
+//		return stdr::distance(
+//			faces.lower_bound({rank}),
+//			faces.upper_bound({rank+1})
+//		);
+//	}
+
+	// Every non-compound polytope will only have 1 face of least/greatest rank.
+	Face const& least   () const { return *faces. begin(); }
+	Face const& greatest() const { return *faces.rbegin(); }
+
+/* ~~ Constructors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	// Unassembled collection of points (DIY).
 	template <stdr::input_range R=std::initializer_list<Coord>>
 	Polytope(FromPointCloud_Arg, R&& input)
 	: coordinates{stdr::begin(input), stdr::end(input)} {
@@ -145,9 +188,11 @@ struct Polytope {
 		}
 	}
 
+	// Construct a possibly degenerate simplex.
 	template <stdr::input_range R=std::initializer_list<Coord>>
 	Polytope(FromSimplex_Arg, R&& input)
 	: coordinates{stdr::begin(input), stdr::end(input)} {
+		// Iterate power set of input.
 		for (unsigned bits=0; bits<(1<<coordinates.size()); bits++) {
 			std::set<Coord const*> subset {};
 			for (unsigned i=0; Coord const& c : coordinates) {
@@ -157,19 +202,83 @@ struct Polytope {
 		}
 	}
 
-	std::vector<Face> facesOfRank(int rank) const {
-		return {
-			faces.lower_bound({rank}),
-			faces.upper_bound({rank+1}),
-		};
+	// Assume our points are evenly spaced to their closest neighbors.
+	// TODO: Allow this algorithm to work with compound polytopes.
+	template <stdr::input_range R=std::initializer_list<Coord>>
+	Polytope(FromRegular_Arg, R&& input)
+	: coordinates{stdr::begin(input), stdr::end(input)} {
+		using T = Coord::value_type;
+		for (Coord const& c : coordinates) {
+			faces.insert({this, 0, {&c}});
+			// Sort all points by distance to c.
+			std::multimap<T, Coord const*> distanceOrder {};
+			for (Coord const& d : coordinates) {
+				distanceOrder.insert({distanceSquared(c, d), &d});
+			}
+			// Insert edge.
+			T minDistance = stdr::next(distanceOrder.begin())->first;
+			stdr::for_each(
+				distanceOrder.lower_bound(minDistance),
+				distanceOrder.upper_bound(minDistance + Epsilon<T>),
+				[&](auto pair) { faces.insert({this, 1, {&c, pair.second}}); }
+			);
+		}
+		// Every k-face is a set of at least k (k-1)-faces on the convex hull.
+		std::vector<Face> kFaces {};
+		for (int k=1; (kFaces=facesOfRank(k)).size() > k; k++) {
+			for (Face f1 : kFaces) { 
+				for (Face f2 : f1.neighbors()) {
+					Face possibleGreater = reachable(f1, f2);
+					// TODO: Haze our face.
+					faces.insert(possibleGreater);
+				}
+			}
+			if (k+1 == Coord::dimension) {
+				std::set<Coord const*> all {};
+				for (Coord const& c : coordinates) all.insert(&c);
+				faces.insert({this, Coord::dimension, all});
+				break;
+			}
+		}
 	}
 
-	// Every non-compound polytope will only have 1 face of least/greatest rank.
-	Face const& least   () const { return *faces. begin(); }
-	Face const& greatest() const { return *faces.rbegin(); }
-
-protected:
-	std::list<Coord> coordinates {};
+private:
+	// Returns the face of rank k+1 in the affine plane defined by f1 and f2,
+	// which only contains reachable faces. Might not be on the convex hull.
+	Face reachable(Face const& f1, Face const& f2) {
+		assert(f1.rank == f2.rank);
+		int k = f1.rank;
+		std::set<Face> seenFaces {f1, f2};
+		std::set<Coord const*> seenCoords = unite(f1.coordRefs, f2.coordRefs);
+		std::vector<Coord> planePoints {};
+		{
+			Face fictitious {k+1, seenCoords};
+			planePoints = fictitious.simplex();
+		}
+		for (Coord const* c : f1.coordRefs) seenCoords.insert(c);
+		for (Coord const* c : f2.coordRefs) seenCoords.insert(c);
+		std::size_t oldSize {};
+		do {
+			oldSize = seenFaces.size();
+			// TODO: Smarter BFS.
+			for (Face f : seenFaces) {
+				for (Face neighbor : f.neighbors()) {
+					if (stdr::all_of(neighbor.coordRefs, [&](Coord const* c) {
+						if (k+1 == Coord::dimension) return true;
+						auto test = planePoints;
+						test.push_back(*c);
+						return !independent(FromSimplex, test);
+					})) {
+						seenFaces.insert(neighbor);
+						for (Coord const* c : neighbor.coordRefs) {
+							seenCoords.insert(c);
+						}
+					}
+				}
+			}
+		} while (oldSize < seenFaces.size());
+		return Face {this, k+1, seenCoords};
+	}
 };
 
 template <stdr::input_range R>
@@ -186,4 +295,12 @@ Polytope(FromSimplex_Arg, R)
 
 template <class Coord>
 Polytope(FromSimplex_Arg, std::initializer_list<Coord>)
+-> Polytope<Coord>;
+
+template <stdr::input_range R>
+Polytope(FromRegular_Arg, R)
+-> Polytope<stdr::range_value_t<R>>;
+
+template <class Coord>
+Polytope(FromRegular_Arg, std::initializer_list<Coord>)
 -> Polytope<Coord>;
