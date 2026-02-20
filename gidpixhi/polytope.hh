@@ -61,7 +61,7 @@ struct Polytope {
 			std::size_t i = 0;
 			for (i=0; Coord const* c : coordRefs) {
 				result[i] = *c;
-				if (1 /*affinelyIndependent(i, result | stdv::take(i+1))*/) {
+				if (independent(FromSimplex, result | stdv::take(i+1))) {
 					if (++i == rank+1) break;
 				}
 			}
@@ -114,9 +114,9 @@ struct Polytope {
 				projectedSimplex.push_back(matrix * c);
 			}
 			// Find orthogonal.
-			SubCoord embeddedResult = orthogonal(FromSimplex, projectedSimplex);
+			SubCoord projectedResult = orthogonal(FromSimplex, projectedSimplex);
 			// Project back up.
-			Coord result = matrix.transpose() * embeddedResult;
+			Coord result = matrix.transpose() * projectedResult;
 			result /= length(result);
 			// Point away from greater's center.
 			bool facingInside = dot(result, inside()-greater.inside()) < 0;

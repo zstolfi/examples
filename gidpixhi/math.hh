@@ -29,6 +29,10 @@ concept Arithmetic = requires(T a, T b) {
 	{a /= b}; {a / b} -> std::convertible_to<double>;
 };
 
+template <class T, class U>
+concept RangeOf = stdr::input_range<T>
+&& std::convertible_to<stdr::range_value_t<T>, U>;
+
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 // TODO: Merge this with the Matrix class.
@@ -152,8 +156,45 @@ public:
 		return std::sqrt(dot(c, c));
 	}
 
+	// Gram determinant.
+	template <RangeOf<Coordinate> R>
+	friend T measureSquared(R&& input) {
+		std::size_t k = stdr::size(input);
+		assert(k <= N);
+		return determinant(
+			stdv::iota(0u, k),
+			stdv::iota(0u, k),
+			[&](auto i, auto j) { return dot(input[i], input[j]); }
+		);
+	}
+
+	// 1-distance, 2-area, 3-volume ... of parallelotope defined by our input.
+	template <RangeOf<Coordinate> R>
+	friend T measure(R&& input) {
+		return std::sqrt(measureSquared(input));
+	}
+
+	// Same as above, but for a simplicial corner of the parallelotope.
+	template <RangeOf<Coordinate> R>
+	friend T volumeSquared(R&& input) {
+		return measureSquared(input) / (factorial(N) * factorial(N));
+	}
+
+	// Same as above, but for a simplicial corner of the parallelotope.
+	template <RangeOf<Coordinate> R>
+	friend T volume(R&& input) {
+		return std::sqrt(measureSquared(input)) / factorial(N);
+	}
+
+	// Generalized collinearity, coplanarity, etc.
+	template <RangeOf<Coordinate> R>
+	friend bool independent(R&& input, T tolerance=1e-6) {
+		if (stdr::size(input) > N) return false;
+		return measureSquared(input) > tolerance*tolerance;
+	}
+
 	// Acts like the Hodge star on an (N-1)-vector defined by our input.
-	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	template <RangeOf<Coordinate> R>
 	friend Coordinate orthogonal(R&& input) {
 		assert(stdr::size(input) == N-1);
 		std::vector<Coordinate> matrix {stdr::begin(input), stdr::end(input)};
@@ -172,7 +213,7 @@ public:
 	}
 
 	// Gram-Schmidt orthonormalization
-	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	template <RangeOf<Coordinate> R>
 	friend std::vector<Coordinate> orthonormalize(R&& input) {
 		assert(stdr::size(input) <= N);
 		std::vector<Coordinate> result {stdr::begin(input), stdr::end(input)};
@@ -185,15 +226,44 @@ public:
 		return result;
 	}
 
-	template <stdr::input_range R=std::initializer_list<Coordinate>>
+/* ~~ Simplex API ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+	template <RangeOf<Coordinate> R>
+	friend T measureSquared(FromSimplex_Arg, R&& input) {
+		return measureSquared(fromSimplex(input));
+	}
+
+	template <RangeOf<Coordinate> R>
+	friend T measure(FromSimplex_Arg, R&& input) {
+		return measure(fromSimplex(input));
+	}
+
+	template <RangeOf<Coordinate> R>
+	friend T volumeSquared(FromSimplex_Arg, R&& input) {
+		return volumeSquared(fromSimplex(input));
+	}
+
+	template <RangeOf<Coordinate> R>
+	friend T volume(FromSimplex_Arg, R&& input) {
+		return volume(fromSimplex(input));
+	}
+
+	template <RangeOf<Coordinate> R>
+	friend bool independent(FromSimplex_Arg, R&& input, T tolerance=1e-6) {
+		return independent(fromSimplex(input), tolerance);
+	}
+
+	template <RangeOf<Coordinate> R>
 	friend Coordinate orthogonal(FromSimplex_Arg, R&& input) {
 		return orthogonal(fromSimplex(input));
 	}
 
-	template <stdr::input_range R=std::initializer_list<Coordinate>>
+	template <RangeOf<Coordinate> R>
 	friend std::vector<Coordinate> orthonormalize(FromSimplex_Arg, R&& input) {
 		return orthonormalize(fromSimplex(input));
 	}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 private:
 	template <stdr::input_range R>
@@ -210,6 +280,12 @@ private:
 		return dot(v, u) / dot(u, u) * u;
 	}
 
+	static consteval T factorial(unsigned x) {
+		T result {1};
+		while (x) result *= x--;
+		return result;
+	}
+
 public:
 	using value_type = T;
 	static constexpr std::size_t dimension = N;
@@ -217,6 +293,7 @@ public:
 	template <std::size_t M>
 	using WithDimension = Coordinate<T, M>;
 
+	// TODO: Try and make these get's non-member.
 	template <std::size_t I>
 	friend auto&& get(Coordinate const&  c) { return c.components[I]; }
 	template <std::size_t I>

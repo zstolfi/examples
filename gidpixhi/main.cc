@@ -86,6 +86,9 @@ int main() {
 		std::cerr << "[" << x << ", " << y << ", " << z << "]\n";
 	}
 
+	std::cerr << "Volume of tetrahedron:\n";
+	std::cerr << volume(FromSimplex, tetrahedron.greatest().simplex()) << "\n";
+
 	std::cout << PlyGeometry {
 		tetrahedron,
 		[](XYZ v) -> PlyGeometry::Vertex { return {v[0], v[1], v[2]}; }
