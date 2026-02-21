@@ -14,10 +14,11 @@
 #include <ranges>
 namespace stdr = std::ranges;
 namespace stdv = std::views;
+using std::sqrt;
 
 /* ~~ API Tags ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-constexpr struct FromSimplex_Arg {} FromSimplex {};
+constexpr struct Affine_Arg {} Affine {};
 
 /* ~~ Concepts ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -101,6 +102,8 @@ public:
 	auto operator<=>(Coordinate const&) const = default;
 	auto const& operator[](std::size_t i) const { return components.at(i); }
 	auto /* */& operator[](std::size_t i) /* */ { return components.at(i); }
+	std::array<T, N> const& array() const { return components; }
+	T const* data() const { return components.data(); }
 
 	template <std::convertible_to<T> ... Ts>
 	Coordinate(Ts ... args) requires(sizeof ... (Ts) == N) {
@@ -189,10 +192,10 @@ public:
 
 	friend T length(Coordinate const& c) {
 		// TODO: Figure out sqrt with custom types.
-		return std::sqrt(lengthSquared(c));
+		return sqrt(lengthSquared(c));
 	}
 
-	// Equivalent to measureSquared(FromSimplex, {c, d}).
+	// Equivalent to measureSquared(Affine, {c, d}).
 	friend T distanceSquared(Coordinate const& c, Coordinate const& d) {
 		return lengthSquared(c - d);
 	}
@@ -216,7 +219,7 @@ public:
 
 	template <RangeOf<Coordinate> R>
 	friend T measure(R&& input) {
-		return std::sqrt(measureSquared(input));
+		return sqrt(measureSquared(input));
 	}
 
 	// Same as above, but for a simplicial corner of the parallelotope.
@@ -227,14 +230,22 @@ public:
 
 	template <RangeOf<Coordinate> R>
 	friend T volume(R&& input) {
-		return std::sqrt(measureSquared(input)) / factorial(N);
+		return sqrt(measureSquared(input)) / factorial(N);
 	}
 
-	// Generalized collinearity, coplanarity, etc.
+	// Generalized non-collinearity, non-coplanarity, etc.
 	template <RangeOf<Coordinate> R>
 	friend bool independent(R&& input, T eps=Epsilon<T>) {
 		if (stdr::size(input) > N) return false;
 		return measureSquared(input) > eps*eps;
+	}
+
+	// Can tell if c is the hyperplane defined by input.
+	template <RangeOf<Coordinate> R>
+	friend bool independent(R&& input, Coordinate const& c, T eps=Epsilon<T>) {
+		std::vector<Coordinate> join {stdr::begin(input), stdr::end(input)};
+		join.push_back(c);
+		return independent(join, eps);
 	}
 
 	// Acts like the Hodge star on an (N-1)-vector defined by our input.
@@ -270,48 +281,55 @@ public:
 		return result;
 	}
 
-/* ~~ Simplex API ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~ Affine API ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 	template <RangeOf<Coordinate> R>
-	friend T measureSquared(FromSimplex_Arg, R&& input) {
-		return measureSquared(fromSimplex(input));
+	friend T measureSquared(Affine_Arg, R&& r) {
+		return measureSquared(fromAffine(r));
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend T measure(FromSimplex_Arg, R&& input) {
-		return measure(fromSimplex(input));
+	friend T measure(Affine_Arg, R&& r) {
+		return measure(fromAffine(r));
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend T volumeSquared(FromSimplex_Arg, R&& input) {
-		return volumeSquared(fromSimplex(input));
+	friend T volumeSquared(Affine_Arg, R&& r) {
+		return volumeSquared(fromAffine(r));
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend T volume(FromSimplex_Arg, R&& input) {
-		return volume(fromSimplex(input));
+	friend T volume(Affine_Arg, R&& r) {
+		return volume(fromAffine(r));
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend bool independent(FromSimplex_Arg, R&& input, T eps=Epsilon<T>) {
-		return independent(fromSimplex(input), eps);
+	friend bool independent(Affine_Arg, R&& r, T eps=Epsilon<T>) {
+		return independent(fromAffine(r), eps);
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend Coordinate orthogonal(FromSimplex_Arg, R&& input) {
-		return orthogonal(fromSimplex(input));
+	friend bool independent(Affine_Arg, R&& r, Coordinate c, T eps=Epsilon<T>) {
+		std::vector<Coordinate> join {stdr::begin(r), stdr::end(r)};
+		join.push_back(c);
+		return independent(fromAffine(join), eps);
 	}
 
 	template <RangeOf<Coordinate> R>
-	friend std::vector<Coordinate> orthonormalize(FromSimplex_Arg, R&& input) {
-		return orthonormalize(fromSimplex(input));
+	friend Coordinate orthogonal(Affine_Arg, R&& r) {
+		return orthogonal(fromAffine(r));
+	}
+
+	template <RangeOf<Coordinate> R>
+	friend std::vector<Coordinate> orthonormalize(Affine_Arg, R&& r) {
+		return orthonormalize(fromAffine(r));
 	}
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 private:
 	template <stdr::input_range R>
-	static std::vector<Coordinate> fromSimplex(R&& input) {
+	static std::vector<Coordinate> fromAffine(R&& input) {
 		assert(stdr::size(input) <= N+1);
 		std::vector<Coordinate> result {};
 		for (Coordinate c : input | stdv::drop(1)) {

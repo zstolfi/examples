@@ -7,8 +7,10 @@
 #include <vector>
 #include <bit>
 #include <initializer_list>
+#include <optional>
 
 constexpr struct FromPointCloud_Arg {} FromPointCloud {};
+constexpr struct FromSimplex_Arg    {} FromSimplex    {};
 constexpr struct FromRegular_Arg    {} FromRegular    {};
 
 // https://en.wikipedia.org/wiki/Abstract_polytope
@@ -78,15 +80,13 @@ public:
 
 		// A simplex which lives entirely in 'this'.
 		std::vector<Coord> simplex() const {
-			std::vector<Coord> result (rank+1);
-			std::size_t i = 0;
-			for (i=0; Coord const* c : coordRefs) {
-				result[i] = *c;
-				if (independent(FromSimplex, result | stdv::take(i+1))) {
-					if (++i == rank+1) break;
-				}
+			std::vector<Coord> result {};
+			for (Coord const* c : coordRefs) {
+				result.push_back(*c);
+				if (!independent(Affine, result)) result.pop_back();
+				if (result.size() == rank+1) break;
 			}
-			assert(i == rank+1);
+			assert(result.size() == rank+1);
 			return result;
 		}
 
@@ -107,7 +107,7 @@ public:
 		// Basis coordinates for the space defined by 'this'.
 		std::vector<Coord> frame() const {
 			// TODO: Make the bases respect the RHR with the normal.
-			return orthonormalize(FromSimplex, simplex());
+			return orthonormalize(Affine, simplex());
 		};
 
 		// Direction orthogonal to 'this' facing away from greater's center.
@@ -135,7 +135,7 @@ public:
 				projectedSimplex.push_back(matrix * c);
 			}
 			// Find orthogonal.
-			SubCoord projectedResult = orthogonal(FromSimplex, projectedSimplex);
+			SubCoord projectedResult = orthogonal(Affine, projectedSimplex);
 			// Project back up.
 			Coord result = matrix.transpose() * projectedResult;
 			result /= length(result);
@@ -228,9 +228,9 @@ public:
 		for (int k=1; (kFaces=facesOfRank(k)).size() > k; k++) {
 			for (Face f1 : kFaces) { 
 				for (Face f2 : f1.neighbors()) {
-					Face possibleGreater = reachable(f1, f2);
-					// TODO: Haze our face.
-					faces.insert(possibleGreater);
+					if (auto possibleGreater = reachable(f1, f2)) {
+						faces.insert(*possibleGreater);
+					}
 				}
 			}
 			if (k+1 == Coord::dimension) {
@@ -245,38 +245,46 @@ public:
 private:
 	// Returns the face of rank k+1 in the affine plane defined by f1 and f2,
 	// which only contains reachable faces. Might not be on the convex hull.
-	Face reachable(Face const& f1, Face const& f2) {
+	std::optional<Face> reachable(Face const& f1, Face const& f2) {
 		assert(f1.rank == f2.rank);
 		int k = f1.rank;
-		std::set<Face> seenFaces {f1, f2};
 		std::set<Coord const*> seenCoords = unite(f1.coordRefs, f2.coordRefs);
-		std::vector<Coord> planePoints {};
-		{
-			Face fictitious {k+1, seenCoords};
-			planePoints = fictitious.simplex();
+		std::vector<Coord> planePoints = Face{k+1, seenCoords}.simplex();
+		// Isolate all the faces which lie entirely on our plane of interest.
+		std::set<Face> possible {}, seenFaces {};
+		for (Face f : facesOfRank(k)) {
+			bool onPlane = stdr::all_of(f.coordRefs, [&](Coord const* c) {
+				if (k+1 == Coord::dimension) return true;
+				return !independent(Affine, planePoints, *c);
+			});
+			if (onPlane) possible.insert(f);
 		}
-		for (Coord const* c : f1.coordRefs) seenCoords.insert(c);
-		for (Coord const* c : f2.coordRefs) seenCoords.insert(c);
-		std::size_t oldSize {};
-		do {
-			oldSize = seenFaces.size();
-			// TODO: Smarter BFS.
-			for (Face f : seenFaces) {
-				for (Face neighbor : f.neighbors()) {
-					if (stdr::all_of(neighbor.coordRefs, [&](Coord const* c) {
-						if (k+1 == Coord::dimension) return true;
-						auto test = planePoints;
-						test.push_back(*c);
-						return !independent(FromSimplex, test);
-					})) {
-						seenFaces.insert(neighbor);
-						for (Coord const* c : neighbor.coordRefs) {
-							seenCoords.insert(c);
-						}
+		assert(possible.contains(f1) && possible.contains(f2));
+		// Survey the reachable faces while building up a graph.
+		std::map<Face, std::set<Face>> graph {};
+		// Breadth first search.
+		for (
+			std::set<Face> horizon {f1}, newHorizon {};
+			!horizon.empty();
+			horizon = newHorizon, newHorizon = {}
+		) {
+			for (Face f : horizon) {
+				// Store the points for our possible (k+1)-face.
+				for (Coord const* c : f.coordRefs) seenCoords.insert(c);
+				seenFaces.insert(f);
+				// Expand our horizon.
+				for (Face n : f.neighbors()) {
+					if (possible.contains(n) && !seenFaces.contains(n)) {
+						graph[f].insert(n);
+						graph[n].insert(f);
+						newHorizon.insert(n);
 					}
 				}
 			}
-		} while (oldSize < seenFaces.size());
+		}
+		if (graph.size() < k+1) return std::nullopt;
+		auto disconnect = [&](auto pair) { return pair.second.size() <= k; };
+		if (stdr::any_of(graph, disconnect)) return std::nullopt;
 		return Face {this, k+1, seenCoords};
 	}
 };

@@ -15,12 +15,12 @@ struct PlyGeometry {
 
 	PlyGeometry(Vertex v={}, Face f={}): vertices{v}, faces{f} {}
 
-	template <class Point>
-	PlyGeometry(Polytope<Point> const& polytope, auto&& getXYZ) {
+	template <std::convertible_to<Coordinate<double, 3>> Coord>
+	PlyGeometry(Polytope<Coord> const& polytope) {
 		std::map<Vertex, uint32_t> indexOf {};
 		for (auto vertex : polytope.facesOfRank(0)) {
 			for (auto point : vertex.points()) {
-				Vertex v = getXYZ(point);
+				Vertex v {point.array()};
 				indexOf[v] = vertices.size();
 				vertices.push_back(v);
 			}
@@ -28,14 +28,14 @@ struct PlyGeometry {
 		for (auto face : polytope.facesOfRank(2)) {
 			// Get point locations.
 			std::vector<Vertex> v {};
-			for (auto point : face.points()) v.push_back(getXYZ(point));
+			for (auto point : face.points()) v.push_back(point.array());
 			// Sort the points cyclically.
-			stdr::partial_sort(v, v.begin()+1);
+			stdr::partial_sort(v, v.begin()+2);
 			stdr::sort(v.begin()+2, v.end(), stdr::greater {},
 				[&, dir = sub(v[1], v[0])] (Vertex vi) {
 					auto n = sub(vi, v[0]);
-					// (n/|n| · dir)²
-					return dot(n, dir) * dot(n, dir) / dot(n, n);
+					// n/|n| · dir
+					return dot(n, dir) / std::sqrt(dot(n, n));
 				}
 			);
 			// Store the points as indices.
