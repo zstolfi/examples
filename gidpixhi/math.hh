@@ -117,10 +117,8 @@ public:
 	}
 
 	Coordinate() = default;
-	Coordinate(Coordinate const& ) = default;
-	Coordinate(Coordinate /* */&&) = default;
-	Coordinate& operator=(Coordinate const& ) = default;
-	Coordinate& operator=(Coordinate /* */&&) = default;
+	Coordinate(Coordinate const&) = default;
+	Coordinate& operator=(Coordinate const&) = default;
 
 	Coordinate operator+() {
 		Coordinate result {*this};
@@ -392,10 +390,8 @@ public:
 	}
 
 	Matrix() = default;
-	Matrix(Matrix const& ) = default;
-	Matrix(Matrix /* */&&) = default;
-	Matrix& operator=(Matrix const& ) = default;
-	Matrix& operator=(Matrix /* */&&) = default;
+	Matrix(Matrix const&) = default;
+	Matrix& operator=(Matrix const&) = default;
 
 	Matrix<T, N, M> transpose() const {
 		Matrix<T, N, M> result {};

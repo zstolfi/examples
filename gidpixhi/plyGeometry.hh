@@ -13,7 +13,17 @@ struct PlyGeometry {
 	std::vector<Vertex> vertices;
 	std::vector<Face> faces;
 
-	PlyGeometry(Vertex v={}, Face f={}): vertices{v}, faces{f} {}
+	PlyGeometry(decltype(vertices) v={}, decltype(faces) f={})
+	: vertices{v}, faces{f} {}
+	
+	PlyGeometry& add(PlyGeometry const& other) {
+		auto offset = [size=vertices.size()](Face& f) {
+			for (auto& index : f) index += size;
+		};
+		for (Vertex v : other.vertices) vertices.push_back(v);
+		for (Face f : other.faces) offset(f), faces.push_back(f);
+		return *this;
+	}
 
 	template <std::convertible_to<Coordinate<double, 3>> Coord>
 	PlyGeometry(Polytope<Coord> const& polytope) {

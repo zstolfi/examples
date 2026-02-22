@@ -157,6 +157,24 @@ public:
 	};
 
 	Polytope() = default;
+	Polytope(Polytope const& other) {
+		std::map<Coord const*, Coord const*> refMap {};
+		for (Coord const& c : other.coordinates) {
+			refMap[&c] = &coordinates.emplace_back(c);
+		}
+		for (Face const& f : other.faces) {
+			std::set<Coord const*> refs {};
+			for (Coord const* c : f.coordRefs) refs.insert(refMap[c]);
+			faces.insert({this, f.rank, refs});
+		}
+	}
+
+	Polytope& operator=(Polytope const& other) { *this = Polytope {other}; }
+
+	Polytope& transform(auto&& f) {
+		for (Coord& c : coordinates) c = f((Coord const&)c);
+		return *this;
+	}
 
 	std::vector<Face> facesOfRank(int rank) const {
 		return {

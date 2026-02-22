@@ -25,5 +25,14 @@ int main() {
 		},
 	};
 
-	std::cout << PlyGeometry {J(6)};
+	PlyGeometry collection {};
+	for (int n=1; n<=6; n++) {
+		Polytope johnsonSolid = J(n);
+		johnsonSolid.transform([n](auto coord) {
+			coord[1] += 10*(n-1);
+			return coord;
+		});
+		collection.add(johnsonSolid);
+	}
+	std::cout << collection;
 }
