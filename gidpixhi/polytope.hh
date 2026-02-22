@@ -228,8 +228,8 @@ public:
 		for (int k=1; (kFaces=facesOfRank(k)).size() > k; k++) {
 			for (Face f1 : kFaces) { 
 				for (Face f2 : f1.neighbors()) {
-					if (auto possibleGreater = reachable(f1, f2)) {
-						faces.insert(*possibleGreater);
+					if (auto discovery = dicoverGreaterFace(f1, f2)) {
+						faces.insert(*discovery);
 					}
 				}
 			}
@@ -245,14 +245,18 @@ public:
 private:
 	// Returns the face of rank k+1 in the affine plane defined by f1 and f2,
 	// which only contains reachable faces. Might not be on the convex hull.
-	std::optional<Face> reachable(Face const& f1, Face const& f2) {
+	std::optional<Face> dicoverGreaterFace(Face const& f1, Face const& f2) {
 		assert(f1.rank == f2.rank);
 		int k = f1.rank;
 		std::set<Coord const*> seenCoords = unite(f1.coordRefs, f2.coordRefs);
-		std::vector<Coord> planePoints = Face{k+1, seenCoords}.simplex();
+		// Bail out if this face is already known.
+		if (stdr::any_of(facesOfRank(k+1), [&](Face const& f) {
+			return stdr::includes(f.coordRefs, seenCoords);
+		})) return std::nullopt;
 		// Isolate all the faces which lie entirely on our plane of interest.
+		std::vector<Coord> planePoints = Face{k+1, seenCoords}.simplex();
 		std::set<Face> possible {}, seenFaces {};
-		for (Face f : facesOfRank(k)) {
+		for (Face const& f : facesOfRank(k)) {
 			bool onPlane = stdr::all_of(f.coordRefs, [&](Coord const* c) {
 				if (k+1 == Coord::dimension) return true;
 				return !independent(Affine, planePoints, *c);

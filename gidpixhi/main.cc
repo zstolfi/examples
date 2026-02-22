@@ -25,5 +25,5 @@ int main() {
 		},
 	};
 
-	std::cout << PlyGeometry {J(1)};
+	std::cout << PlyGeometry {J(6)};
 }
