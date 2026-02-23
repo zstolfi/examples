@@ -18,7 +18,7 @@ struct PlyGeometry {
 	
 	PlyGeometry& add(PlyGeometry const& other) {
 		auto offset = [size=vertices.size()](Face& f) {
-			for (auto& index : f) index += size;
+			for (uint32_t& index : f) index += size;
 		};
 		for (Vertex v : other.vertices) vertices.push_back(v);
 		for (Face f : other.faces) offset(f), faces.push_back(f);

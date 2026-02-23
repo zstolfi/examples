@@ -25,6 +25,8 @@ int main() {
 		},
 	};
 
+//	std::cout << PlyGeometry {cuboctahedron};
+
 	PlyGeometry collection {};
 	for (int n=1; n<=6; n++) {
 		Polytope johnsonSolid = J(n);
