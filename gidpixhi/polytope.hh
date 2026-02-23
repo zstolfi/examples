@@ -1,9 +1,7 @@
 #pragma once
 #include "math.hh"
-#include <tuple>
 #include <set>
 #include <map>
-#include <list>
 #include <vector>
 #include <bit>
 #include <initializer_list>
@@ -17,7 +15,7 @@ constexpr struct FromRegular_Arg    {} FromRegular    {};
 template <class Coord>
 struct Polytope {
 protected:
-	std::list<Coord> coordinates {};
+	std::vector<Coord> coordinates {};
 
 public:
 	struct Face {
@@ -157,14 +155,14 @@ public:
 	};
 
 	Polytope() = default;
-	Polytope(Polytope const& other) {
-		std::map<Coord const*, Coord const*> refMap {};
-		for (Coord const& c : other.coordinates) {
-			refMap[&c] = &coordinates.emplace_back(c);
-		}
+	
+	Polytope(Polytope const& other)
+	: coordinates{other.coordinates.begin(), other.coordinates.end()} {
 		for (Face const& f : other.faces) {
 			std::set<Coord const*> refs {};
-			for (Coord const* c : f.coordRefs) refs.insert(refMap[c]);
+			for (Coord const* c : f.coordRefs) {
+				refs.insert(&coordinates[c - other.coordinates.data()]);
+			}
 			faces.insert({this, f.rank, refs});
 		}
 	}
