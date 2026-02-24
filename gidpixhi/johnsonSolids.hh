@@ -103,6 +103,18 @@ namespace Johnson {
 			{-1, -phi, +1/phi},
 			{+1, -phi, -1/phi},
 		}
+	},
+	// J7: https://en.wikipedia.org/wiki/Elongated_triangular_pyramid
+	ElongatedTriangularPyramid {
+		FromRegular, {
+			{2*sqrt(3)/3, 0, +1},
+			{2*sqrt(3)/3, 0, -1},
+			{-sqrt(3)/3, +1.0, +1},
+			{-sqrt(3)/3, +1.0, -1},
+			{-sqrt(3)/3, -1.0, +1},
+			{-sqrt(3)/3, -1.0, -1},
+			{0, 0, 1 + 2*sqrt(6)/3},
+		}
 	};
 
 	auto const& J(std::size_t n) {
@@ -112,6 +124,7 @@ namespace Johnson {
 		if (n == 4) return SquareCupola;
 		if (n == 5) return PentagonalCupola;
 		if (n == 6) return PentagonalRotunda;
+		if (n == 7) return ElongatedTriangularPyramid;
 		throw std::out_of_range {
 			std::format("Invalid Johnson Solid number, {}.", n)
 		};

@@ -242,19 +242,42 @@ public:
 		}
 		// Every k-face is a set of at least k (k-1)-faces on the convex hull.
 		std::vector<Face> kFaces {};
-		for (int k=1; (kFaces=facesOfRank(k)).size() > k; k++) {
+		for (int k=1; (kFaces=facesOfRank(k)).size(); k++) {
+			// If we have all our facets, creating the greatest face is trivial.
+			if (k == Coord::dimension) {
+				std::set<std::size_t> all {};
+				for (std::size_t i=0; i<coordinates.size(); i++) all.insert(i);
+				faces.insert({this, Coord::dimension, all});
+			}
+			// Remove all (k-1)-faces which don't lie on the convex hull that
+			// our previous iteration discovered.
+			if (k > 2) for (Face f : kFaces) {
+				for (Face g : f.lesserFacesOfRank(k-1)) {
+					Coord normal = g.normal(f);
+					Coord inside = g.inside();
+					auto vertices = onPlane(Affine, 0, f);
+					int count = 0;
+					bool removable = stdr::any_of(vertices, [&](auto v) {
+						std::size_t index = *v.m_indices.begin();
+						if (g.m_indices.contains(index)) return false;
+						Coord c = coordinates[index];
+						int sign = dot(c - inside, normal) < 0? -1: 1;
+						if (count > 0 && sign < 0) return true;
+						if (count < 0 && sign > 0) return true;
+						count += sign; return false;
+					});
+					if (removable) faces.erase(g);
+				}
+			}
+			// Find (k+1)-faces which lie on the hyperplane defined by two
+			// neighboring k-faces. If the polytope is non-elementary we will
+			// generate more faces than the convex hull has.
 			for (Face f1 : kFaces) { 
 				for (Face f2 : f1.neighbors()) {
 					if (auto discovery = dicoverGreaterFace(f1, f2)) {
 						faces.insert(*discovery);
 					}
 				}
-			}
-			if (k+1 == Coord::dimension) {
-				std::set<std::size_t> all {};
-				for (std::size_t i=0; i<coordinates.size(); i++) all.insert(i);
-				faces.insert({this, Coord::dimension, all});
-				break;
 			}
 		}
 	}
@@ -271,21 +294,13 @@ private:
 			return stdr::includes(f.m_indices, seenCoords);
 		})) return std::nullopt;
 		// Isolate all the faces which lie entirely on our plane of interest.
-		std::vector<Coord> planePoints = Face{this, k+1, seenCoords}.simplex();
-		std::set<Face> possible {}, seenFaces {};
-		for (Face const& f : facesOfRank(k)) {
-			bool onPlane = stdr::all_of(f.m_indices, [&](std::size_t i) {
-				if (k+1 == Coord::dimension) return true;
-				return !independent(Affine, planePoints, coordinates[i]);
-			});
-			if (onPlane) possible.insert(f);
-		}
+		auto possible = onPlane(Affine, k, Face{this, k+1, seenCoords});
 		assert(possible.contains(f1) && possible.contains(f2));
 		// Survey the reachable faces while building up a graph.
 		std::map<Face, std::set<Face>> graph {};
 		// Breadth first search.
 		for (
-			std::set<Face> horizon {f1}, newHorizon {};
+			std::set<Face> horizon {f1}, newHorizon {}, seenFaces {};
 			!horizon.empty();
 			horizon = newHorizon, newHorizon = {}
 		) {
@@ -307,6 +322,20 @@ private:
 		auto disconnect = [&](auto pair) { return pair.second.size() <= k; };
 		if (stdr::any_of(graph, disconnect)) return std::nullopt;
 		return Face {this, k+1, seenCoords};
+	}
+
+	std::set<Face> onPlane(Affine_Arg, int rank, Face const& plane) {
+		assert(rank < plane.m_rank);
+		std::set<Face> result {};
+		auto const simplex = plane.simplex();
+		for (Face const& f : facesOfRank(rank)) {
+			bool onPlane = stdr::all_of(f.m_indices, [&](std::size_t i) {
+				if (plane.m_rank == Coord::dimension) return true;
+				return !independent(Affine, simplex, coordinates[i]);
+			});
+			if (onPlane) result.insert(f);
+		}
+		return result;
 	}
 };
 
