@@ -28,7 +28,7 @@ int main() {
 //	std::cout << PlyGeometry {cuboctahedron};
 
 	PlyGeometry collection {};
-	for (int n=1; n<=7; n++) {
+	for (int n=1; n<=9; n++) {
 		Polytope johnsonSolid = J(n);
 		johnsonSolid.transform([n](auto coord) {
 			coord[1] += 10*(n-1);

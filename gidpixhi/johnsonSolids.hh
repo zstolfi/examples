@@ -7,7 +7,7 @@ using std::numbers::phi;
 
 namespace Johnson {
 	Polytope<Coordinate<double, 3>> const
-	// J1: https://en.wikipedia.org/wiki/Equilateral_square_pyramid
+	// J1: https://en.wikipedia.org/wiki/Square_pyramid
 	SquarePyramid {
 		FromRegular, {
 			{+1, 0, 0},
@@ -17,7 +17,7 @@ namespace Johnson {
 			{0, 0, 1},
 		}
 	},
-	// J2: https://en.wikipedia.org/wiki/Pentagonal_pyramid#As_a_Johnson_solid
+	// J2: https://en.wikipedia.org/wiki/Pentagonal_pyramid
 	PentagonalPyramid {
 		FromRegular, {
 			{+1, 0, phi},
@@ -79,7 +79,7 @@ namespace Johnson {
 			{0, -phi*phi, +(2+phi)},
 		}
 	},
-
+	// J6: https://en.wikipedia.org/wiki/Pentagonal_rotunda
 	PentagonalRotunda {
 		FromRegular, {
 			{+2, 0, 0},
@@ -115,6 +115,36 @@ namespace Johnson {
 			{-sqrt(3)/3, -1.0, -1},
 			{0, 0, 1 + 2*sqrt(6)/3},
 		}
+	},
+	// J8: https://en.wikipedia.org/wiki/Elongated_square_pyramid
+	ElongatedSquarePyramid {
+		FromRegular, {
+			{+1, +1, +1},
+			{+1, +1, -1},
+			{+1, -1, +1},
+			{+1, -1, -1},
+			{-1, +1, +1},
+			{-1, +1, -1},
+			{-1, -1, +1},
+			{-1, -1, -1},
+			{0, 0, 1 + sqrt(2)},
+		}
+	},
+	// J9: https://en.wikipedia.org/wiki/Elongated_pentagonal_pyramid
+	ElongatedPentagonalPyramid {
+		FromRegular, {
+			{sqrt(50+10*sqrt(5))/5, 0, +1},
+			{sqrt(50+10*sqrt(5))/5, 0, -1},
+			{+sqrt(2/(5+sqrt(5))), +phi, +1},
+			{+sqrt(2/(5+sqrt(5))), +phi, -1},
+			{-sqrt((5+2*sqrt(5))/5), +1, +1},
+			{-sqrt((5+2*sqrt(5))/5), +1, -1},
+			{-sqrt((5+2*sqrt(5))/5), -1, +1},
+			{-sqrt((5+2*sqrt(5))/5), -1, -1},
+			{+sqrt(2/(5+sqrt(5))), -phi, +1},
+			{+sqrt(2/(5+sqrt(5))), -phi, -1},
+			{0, 0, 1 + sqrt((10-2*sqrt(5))/5)},
+		}
 	};
 
 	auto const& J(std::size_t n) {
@@ -125,6 +155,8 @@ namespace Johnson {
 		if (n == 5) return PentagonalCupola;
 		if (n == 6) return PentagonalRotunda;
 		if (n == 7) return ElongatedTriangularPyramid;
+		if (n == 8) return ElongatedSquarePyramid;
+		if (n == 9) return ElongatedPentagonalPyramid;
 		throw std::out_of_range {
 			std::format("Invalid Johnson Solid number, {}.", n)
 		};
