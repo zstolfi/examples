@@ -18,7 +18,8 @@ using std::sqrt;
 
 /* ~~ API Tags ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-constexpr struct Affine_Arg {} Affine {};
+constexpr struct Affine_Arg       {} Affine {}      ;
+constexpr struct FromDiagonal_Arg {} FromDiagonal {};
 
 /* ~~ Concepts ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -78,17 +79,27 @@ T determinant(R1&& rows, R2&& cols, F&& elementAccess) {
 	return sum;
 }
 
-template <class T>
-std::set<T> unite(std::set<T> lhs, std::set<T> const& rhs) {
-	for (T const& x : rhs) lhs.insert(x);
-	return lhs;
+template <class Container>
+Container unite(Container const& lhs, Container const& rhs) {
+	assert(stdr::is_sorted(lhs));
+	assert(stdr::is_sorted(rhs));
+	Container result {};
+	stdr::set_union(lhs, rhs, std::inserter(result, result.end()));
+	return result;
 }
 
-template <class T>
-std::set<T> intersect(std::set<T> const& lhs, std::set<T> const& rhs) {
-	std::set<T> result {};
-	for (T const& x : lhs) if (rhs.contains(x)) result.insert(x);
+template <class Container>
+Container intersect(Container const& lhs, Container const& rhs) {
+	assert(stdr::is_sorted(lhs));
+	assert(stdr::is_sorted(rhs));
+	Container result {};
+	stdr::set_intersection(lhs, rhs, std::inserter(result, result.end()));
 	return result;
+}
+
+template <Arithmetic T, class U>
+U lerp(T t, U a, U b) {
+	return (1-t)*a + t*b;
 }
 
 /* ~~ Coordinate Class ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -393,6 +404,88 @@ public:
 	Matrix(Matrix const&) = default;
 	Matrix& operator=(Matrix const&) = default;
 
+	Matrix(FromDiagonal_Arg, T val={1}) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			(*this)[i][j] = (i == j)? val: T{0};
+		}
+	}
+
+	Matrix operator+() {
+		Matrix result {*this};
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			result[i][j] = +result[i][j];
+		}
+		return result;
+	}
+
+	Matrix operator-() {
+		Matrix result {*this};
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			result[i][j] = -result[i][j];
+		}
+		return result;
+	}
+
+	Matrix& operator+=(Matrix const& rhs) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			(*this)[i][j] += rhs[i][j];
+		}
+		return *this;
+	}
+
+	friend Matrix operator+(Matrix lhs, Matrix const& rhs) {
+		lhs += rhs;
+		return lhs;
+	}
+
+	Matrix& operator-=(Matrix const& rhs) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			(*this)[i][j] -= rhs[i][j];
+		}
+		return *this;
+	}
+
+	friend Matrix operator-(Matrix lhs, Matrix const& rhs) {
+		lhs -= rhs;
+		return lhs;
+	}
+
+	Matrix& operator*=(T scalar) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			(*this)[i][j] *= scalar;
+		}
+		return *this;
+	}
+
+	friend Matrix operator*(Matrix lhs, T scalar) {
+		lhs *= scalar;
+		return lhs;
+	}
+
+	friend Matrix operator*(T scalar, Matrix rhs) {
+		rhs *= scalar;
+		return rhs;
+	}
+
+	Matrix& operator/=(T scalar) {
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			(*this)[i][j] /= scalar;
+		}
+		return *this;
+	}
+
+	friend Matrix operator/(Matrix lhs, T scalar) {
+		lhs /= scalar;
+		return lhs;
+	}
+
 	Matrix<T, N, M> transpose() const {
 		Matrix<T, N, M> result {};
 		for (std::size_t i=0; i<M; i++)
@@ -410,5 +503,15 @@ public:
 		return result;
 	}
 
-	// This linear algebra class is a stub. You can help zstolfi by expanding it.
+	// This linear algebra class is still a stub. :(
 };
+
+template <Arithmetic T, std::size_t M, std::size_t N>
+Matrix<T, M, N> outer(Coordinate<T, M> const& u, Coordinate<T, N> const& v) {
+	Matrix<T, M, N> result {};
+	for (std::size_t i=0; i<M; i++)
+	for (std::size_t j=0; j<N; j++) {
+		result[i][j] = u[i] * v[j];
+	}
+	return result;
+}

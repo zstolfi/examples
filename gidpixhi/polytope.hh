@@ -169,6 +169,23 @@ public:
 		}
 	}
 
+	Polytope(Face const& other) {
+		assert(other.parent != this);
+		std::vector<Coord> const* oldCoordinates {&other.parent->coordinates};
+		std::map<std::size_t, std::size_t> indexMap {};
+		for (auto i : other.m_indices) {
+			indexMap[i] = coordinates.size();
+			coordinates.push_back((*oldCoordinates)[i]);
+		}
+		for (int k=-1; k<=other.m_rank; k++) {
+			for (Face const& f : other.lesserFacesOfRank(k)) {
+				std::set<std::size_t> indexSet {};
+				for (auto i : f.m_indices) indexSet.insert(indexMap[i]);
+				faces.insert({this, k, indexSet});
+			}
+		}
+	}
+
 	Polytope& transform(auto&& f) {
 		for (Coord& c : coordinates) c = f((Coord const&)c);
 		return *this;

@@ -1,4 +1,5 @@
 #include "polytope.hh"
+#include "net.hh"
 #include "plyGeometry.hh"
 #include <iostream>
 
@@ -25,16 +26,14 @@ int main() {
 		},
 	};
 
-//	std::cout << PlyGeometry {cuboctahedron};
+	Net net {cuboctahedron};
 
 	PlyGeometry collection {};
-	for (int n=1; n<=9; n++) {
-		Polytope johnsonSolid = J(n);
-		johnsonSolid.transform([n](auto coord) {
-			coord[1] += 10*(n-1);
-			return coord;
-		});
-		collection.add(johnsonSolid);
+	for (int i=0; i<=60; i++) {
+		for (auto facet : net.interpolate(i/60.0)) {
+			facet.transform([i](XYZ c) { return c + XYZ {0, 10*i, 0}; });
+			collection.add(facet);
+		}
 	}
 	std::cout << collection;
 }
