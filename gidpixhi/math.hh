@@ -400,6 +400,15 @@ public:
 		}
 	}
 
+	Matrix(std::initializer_list<std::initializer_list<T>> input) {
+		assert(input.size() == M);
+		assert(stdr::all_of(input, [](auto il) { return il.size() == N; }));
+		for (std::size_t i=0; i<M; i++)
+		for (std::size_t j=0; j<N; j++) {
+			elements[i][j] = input.begin()[i].begin()[j];
+		}
+	}
+
 	Matrix() = default;
 	Matrix(Matrix const&) = default;
 	Matrix& operator=(Matrix const&) = default;
