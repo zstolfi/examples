@@ -32,7 +32,7 @@ public:
 			});
 		}
 		// Sort every facet by how upwards they face.
-		stdr::sort(facets, stdr::greater {}, &Facet::normal);
+		stdr::sort(facets, stdr::greater {}, upComponent);
 		// Create tree with facets[0] as the root.
 		for (std::size_t i=0; Facet const& parent : facets) {
 			for (Facet& child : facets | stdv::drop(++i)) {
@@ -54,10 +54,10 @@ public:
 				Coord middle = angleInterpolate(t, normal, target);
 				// Define rotation matrix.
 				// https://math.stackexchange.com/a/4167838/1743259
-				Coord u = middle, v = normal;
+				Coord u = normal, v = middle;
 				Matrix<T, N, N> matrix {FromDiagonal};
 				matrix -= outer(u+v, u+v) / (1 + dot(u, v));
-				matrix += 2 * outer(u, v);
+				matrix += 2 * outer(v, u);
 				f.polytope.transform([&](Coord c) {
 					return matrix * (c - node->commonPoint) + node->commonPoint;
 				});
@@ -71,8 +71,12 @@ private:
 	// TODO: Make this a constexpr member.
 	static Coord Up() {
 		Coord c {};
-		c[0] = T{1};
+		c[N-1] = T{1};
 		return c;
+	}
+
+	static T upComponent(Facet const& f) {
+		return f.normal[N-1];
 	}
 
 	std::optional<Face> commonRidge(Facet const& f1, Facet const& f2) {

@@ -8,6 +8,7 @@
 using namespace Johnson;
 
 int main() {
+	using XY = Coordinate<double, 2>;
 	using XYZ = Coordinate<double, 3>;
 	Polytope const cuboctahedron {
 		FromRegular, std::vector<XYZ> {
@@ -35,5 +36,15 @@ int main() {
 			collection.add(facet);
 		}
 	}
+
+	std::vector<Polytope<XY>> flattened {};
+	for (auto const& facet : net.interpolate(1.0)) {
+		std::vector<XY> coords {};
+		for (XYZ coord : facet.greatest().points()) {
+			coords.push_back(Matrix<double, 2, 3> {FromDiagonal} * coord);
+		}
+		flattened.emplace_back(FromRegular, coords);
+	}
+
 	std::cout << collection;
 }
