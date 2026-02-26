@@ -34,12 +34,17 @@ public:
 		// Sort every facet by how upwards they face.
 		stdr::sort(facets, stdr::greater {}, upComponent);
 		// Create tree with facets[0] as the root.
-		for (std::size_t i=0; Facet const& parent : facets) {
-			for (Facet& child : facets | stdv::drop(++i)) {
-				if (child.parent != nullptr) continue;
-				if (auto ridge = commonRidge(parent, child)) {
-					child.parent = &parent;
-					child.commonPoint = ridge->center();
+		for (std::size_t i=0; Facet& f1 : facets) {
+			for (Facet& f2 : facets | stdv::drop(++i)) {
+				if (auto ridge = commonRidge(f1, f2)) {
+					if (f2.parent == nullptr) {
+						f2.parent = &f1;
+						f2.commonPoint = ridge->center();
+					}
+					else if (f1.parent == nullptr) {
+						f1.parent = &f2;
+						f1.commonPoint = ridge->center();
+					}
 				}
 			}
 		}
