@@ -5,6 +5,7 @@
 #include <numbers>
 using std::numbers::phi;
 
+#if 0
 namespace Johnson {
 	Polytope<Coordinate<double, 3>> const
 	// J1: https://en.wikipedia.org/wiki/Square_pyramid
@@ -216,3 +217,4 @@ Polytope const orthoplex4 {
 		{0, 0, 0, -1},
 	}
 };
+#endif

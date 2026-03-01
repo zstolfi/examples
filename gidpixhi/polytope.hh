@@ -9,12 +9,15 @@
 
 constexpr struct FromPointCloud_Arg {} FromPointCloud {};
 constexpr struct FromSimplex_Arg    {} FromSimplex    {};
+constexpr struct FromConvexHull_Arg {} FromConvexHull {};
 constexpr struct FromRegular_Arg    {} FromRegular    {};
 
 // https://en.wikipedia.org/wiki/Abstract_polytope
 template <class Coord>
 class Polytope {
 	std::vector<Coord> coordinates {};
+	using CoordT = Coord::value_type;
+	static constexpr auto CoordN = Coord::dimension;
 
 public:
 	class Face {
@@ -45,6 +48,8 @@ public:
 		// All sub-faces which belong to 'this'.
 		std::vector<Face> lesserFacesOfRank(int otherRank) const {
 			std::vector<Face> result {};
+			if (otherRank == m_rank) return {*this};
+			if (otherRank > m_rank) return {};
 			for (Face const& f : parent->facesOfRank(otherRank)) {
 				if (stdr::includes(m_indices, f.m_indices)) {
 					result.push_back(f);
@@ -56,6 +61,8 @@ public:
 		// All faces 'this' is a sub-face of.
 		std::vector<Face> greaterFacesOfRank(int otherRank) const {
 			std::vector<Face> result {};
+			if (otherRank == m_rank) return {*this};
+			if (otherRank < m_rank) return {};
 			for (Face const& f : parent->facesOfRank(otherRank)) {
 				if (stdr::includes(f.m_indices, m_indices)) {
 					result.push_back(f);
@@ -63,23 +70,6 @@ public:
 			}
 			return result;
 		}
-
-	private: // May replace with closure, star, and link.
-		std::vector<Face> neighbors() const {
-			std::vector<Face> result {};
-			std::vector<Face> ridges = lesserFacesOfRank(m_rank-1);
-			for (Face const& f : parent->facesOfRank(m_rank)) {
-				if (f == *this) continue;
-				for (Face const& r : ridges) {
-					if (stdr::includes(f.m_indices, r.m_indices)) {
-						result.push_back(f);
-						break;
-					}
-				}
-			}
-			return result;
-		}
-	public:
 
 		// A simplex which lives entirely in 'this'.
 		std::vector<Coord> simplex() const {
@@ -115,15 +105,16 @@ public:
 
 		// Direction orthogonal to 'this' facing away from greater's center.
 		Coord normal(Face const& greater) const {
-			assert(m_rank < Coord::dimension);
+			assert(m_rank < CoordN);
 			// We use a LUT of member function pointers to have our run-time
 			// variable 'rank' act as a compile-time template parameter.
 			return (this->*normal_tab[m_rank])(greater);
 		}
 
 	private:
-		template <std::size_t K, std::size_t N=Coord::dimension>
+		template <std::size_t K>
 		Coord normal_impl(Face const& greater) const {
+			constexpr std::size_t N = CoordN;
 			using SubCoord = Coord::template WithDimension<K+1>;
 			// Make sure 'this' is a facet of greater.
 			assert(greater.m_rank == K+1 && m_rank == K);
@@ -151,7 +142,7 @@ public:
 		static constexpr auto normal_tab =
 			[]<std::size_t ... I>(std::index_sequence<I ... >) {
 				return std::array {&Face::normal_impl<I> ... };
-			} (std::make_index_sequence<Coord::dimension> {})
+			} (std::make_index_sequence<CoordN> {})
 		;
 	};
 
@@ -225,134 +216,140 @@ public:
 	template <stdr::input_range R=std::initializer_list<Coord>>
 	Polytope(FromSimplex_Arg, R&& input)
 	: coordinates{stdr::begin(input), stdr::end(input)} {
-		// Iterate power set of input.
-		for (unsigned bits=0; bits<(1<<coordinates.size()); bits++) {
-			std::set<std::size_t> subset {};
-			for (std::size_t i=0; i<coordinates.size(); i++) {
-				if ((bits >> i) & 1) subset.insert(i);
-			}
-			faces.insert({this, std::popcount(bits)-1, subset});
-		}
+		createSimplex(coordinates.size());
 	}
 
-	// Assume our points are evenly spaced to their closest neighbors.
-	// TODO: Allow this algorithm to work with compound polytopes.
 	template <stdr::input_range R=std::initializer_list<Coord>>
 	Polytope(FromRegular_Arg, R&& input)
 	: coordinates{stdr::begin(input), stdr::end(input)} {
-		using T = Coord::value_type;
-		for (std::size_t i=0; i<coordinates.size(); i++) {
-			faces.insert({this, 0, {i}});
-			// Sort all points by distance to c.
-			std::multimap<T, std::size_t> distanceOrder {};
-			for (std::size_t j=0; j<coordinates.size(); j++) {
-				T dist = distanceSquared(coordinates[i], coordinates[j]);
-				distanceOrder.insert({dist, j});
-			}
-			// Insert edge.
-			T minDistance = stdr::next(distanceOrder.begin())->first;
-			stdr::for_each(
-				distanceOrder.lower_bound(minDistance),
-				distanceOrder.upper_bound(minDistance + Epsilon<T>),
-				[&](auto pair) { faces.insert({this, 1, {i, pair.second}}); }
-			);
-		}
-		// Every k-face is a set of at least k (k-1)-faces on the convex hull.
-		std::vector<Face> kFaces {};
-		for (int k=1; (kFaces=facesOfRank(k)).size(); k++) {
-			// If we have all our facets, creating the greatest face is trivial.
-			if (k == Coord::dimension) {
-				std::set<std::size_t> all {};
-				for (std::size_t i=0; i<coordinates.size(); i++) all.insert(i);
-				faces.insert({this, Coord::dimension, all});
-			}
-			// Remove all (k-1)-faces which don't lie on the convex hull that
-			// our previous iteration discovered.
-			if (k > 2) for (Face f : kFaces) {
-				for (Face g : f.lesserFacesOfRank(k-1)) {
-					Coord normal = g.normal(f);
-					Coord inside = g.inside();
-					auto vertices = onPlane(Affine, 0, f);
-					int count = 0;
-					bool removable = stdr::any_of(vertices, [&](auto v) {
-						std::size_t index = *v.m_indices.begin();
-						if (g.m_indices.contains(index)) return false;
-						Coord c = coordinates[index];
-						int sign = dot(c - inside, normal) < 0? -1: 1;
-						if (count > 0 && sign < 0) return true;
-						if (count < 0 && sign > 0) return true;
-						count += sign; return false;
-					});
-					if (removable) faces.erase(g);
-				}
-			}
-			// Find (k+1)-faces which lie on the hyperplane defined by two
-			// neighboring k-faces. If the polytope is non-elementary we will
-			// generate more faces than the convex hull has.
-			for (Face f1 : kFaces) { 
-				for (Face f2 : f1.neighbors()) {
-					if (auto discovery = dicoverGreaterFace(f1, f2)) {
-						faces.insert(*discovery);
-					}
-				}
-			}
-		}
+		Polytope(FromConvexHull, input);
+	}
+
+	// Assume all input points lie on the final hull.
+	template <stdr::input_range R=std::initializer_list<Coord>>
+	Polytope(FromConvexHull_Arg, R&& input)
+	: coordinates{stdr::begin(input), stdr::end(input)} {
+		// Partially sort our coordinates so that a simplex of the highest
+		// possible rank comes first.
+		int hullRank = simplexFirst(coordinates);
+		createConvexHull(hullRank, stdv::iota(0u, coordinates.size()));
 	}
 
 private:
-	// Returns the face of rank k+1 in the affine plane defined by f1 and f2,
-	// which only contains reachable faces. Might not be on the convex hull.
-	std::optional<Face> dicoverGreaterFace(Face const& f1, Face const& f2) {
-		assert(f1.m_rank == f2.m_rank);
-		int k = f1.m_rank;
-		std::set<std::size_t> seenCoords = unite(f1.m_indices, f2.m_indices);
-		// Bail out if this face is already known.
-		if (stdr::any_of(facesOfRank(k+1), [&](Face const& f) {
-			return stdr::includes(f.m_indices, seenCoords);
-		})) return std::nullopt;
-		// Isolate all the faces which lie entirely on our plane of interest.
-		auto possible = onPlane(Affine, k, Face{this, k+1, seenCoords});
-		assert(possible.contains(f1) && possible.contains(f2));
-		// Survey the reachable faces while building up a graph.
-		std::map<Face, std::set<Face>> graph {};
-		// Breadth first search.
-		for (
-			std::set<Face> horizon {f1}, newHorizon {}, seenFaces {};
-			!horizon.empty();
-			horizon = newHorizon, newHorizon = {}
-		) {
-			for (Face f : horizon) {
-				// Store the points for our possible (k+1)-face.
-				for (auto i : f.m_indices) seenCoords.insert(i);
-				seenFaces.insert(f);
-				// Expand our horizon.
-				for (Face n : f.neighbors()) {
-					if (possible.contains(n) && !seenFaces.contains(n)) {
-						graph[f].insert(n);
-						graph[n].insert(f);
-						newHorizon.insert(n);
+	void createConvexHull(int rank, stdr::input_range auto&& available) {
+		Face hull = createSimplex(available | stdv::take(rank+1));
+		for (std::size_t eye : available | stdv::drop(rank+1)) {
+			faces.insert({this, 0, {eye}});
+			// 'visible' and 'horizon' contain faces of all lower ranks.
+			// 'coplanar' faces, if any, require lower dimensional recursion.
+			auto const& [visible, horizon, coplanar]
+			= findHorizon(hull, coordinates[eye]);
+			for (Face const& f : horizon) {
+				// Construct ring of pyramids.
+				faces.insert({this, f.m_rank+1, unite(f.m_indices, {eye})});
+			}
+			// Everything inside our horizon is invisible now.
+			deleteFaces(visible);
+			// Coplanar facets are non-trivial if you want non-simplicial edges.
+			for (Face const& f : coplanar) {
+				std::vector<std::size_t> indices {eye};
+				for (std::size_t i : f.m_indices) indices.push_back(i);
+				// May need to remove all descendants of 'f' as well.
+				int subRank = simplexFirst(indices, rank-1);
+				assert(subRank == rank-1);
+				createConvexHull(rank-1, indices);
+			}
+			// Update our hull as it appears in 'faces'.
+			faces.erase(hull);
+			hull.m_indices.insert(eye);
+			faces.insert(hull);
+		}
+	}
+
+	Face const& createSimplex(auto const& indices) {
+		assert(indices.size() < 8*sizeof(unsigned));
+		auto returnVal = faces.begin();
+		// Iterate power set of input.
+		unsigned bits = 1 << indices.size();
+		while (bits--) {
+			std::set<std::size_t> subset {};
+			for (std::size_t i=0; i<indices.size(); i++) {
+				if ((bits >> i) & 1) subset.insert(indices[i]);
+			}
+			auto ir = faces.insert({this, std::popcount(bits)-1, subset});
+			if (subset.size() == indices.size()) returnVal = ir.first;
+		}
+		return *returnVal;
+	}
+
+	template <stdr::random_access_range R>
+	requires(std::same_as<stdr::range_value_t<R>, Coord>)
+	int simplexFirst(R& points, int maxRank=CoordN) {
+		int rank = -1;
+		for (std::size_t i=0; i<points.size(); i++) {
+			std::swap(points[rank+1], points[i]);
+			if (independent(Affine, points | stdv::take(rank+2))) rank++;
+			if (rank == maxRank) break;
+		}
+		return rank;
+	}
+
+	template <stdr::random_access_range R>
+	requires(std::same_as<stdr::range_value_t<R>, std::size_t>)
+	int simplexFirst(R& indices, int maxRank=CoordN) {
+		std::vector<Coord> coords {};
+		int rank = -1;
+		for (std::size_t i=0; i<indices.size(); i++) {
+			std::swap(indices[rank+1], indices[i]);
+			coords.push_back(coordinates[indices[i]]);
+			if (independent(Affine, coords)) rank++;
+			else coords.pop_back();
+			if (rank == maxRank) break;
+		}
+		return rank;
+	}
+
+	auto findHorizon(Face const& hull, Coord const& eye) {
+		// TODO: Make this breadth first search.
+		std::set<Face> seen {}, coplanar {};
+		for (Face const& facet : hull.lesserFacesOfRank(hull.m_rank-1)) {
+			auto distance = dot(eye - facet.inside(), facet.normal(hull));
+			bool onPlane = std::abs(distance) < Epsilon<CoordT>;
+			if (onPlane || distance > 0) {
+				for (Face const& f : faces) {
+					if (stdr::includes(facet.m_indices, f.m_indices)) {
+						seen.insert(f);
+						if (onPlane) coplanar.insert(f);
 					}
 				}
 			}
 		}
-		if (graph.size() < k+1) return std::nullopt;
-		auto disconnect = [&](auto pair) { return pair.second.size() <= k; };
-		if (stdr::any_of(graph, disconnect)) return std::nullopt;
-		return Face {this, k+1, seenCoords};
+		// Start with constructing our facets.
+		std::set<Face> visible {
+			seen.lower_bound({this, hull.m_rank-1}),
+			seen.end()
+		};
+		// All horizon faces touch a facet not belonging to 'visible'.
+		std::set<Face> horizon {};
+		for (Face const& f : seen) {
+			auto onBoundary = !coplanar.contains(f) && !stdr::all_of(
+				f.greaterFacesOfRank(hull.m_rank-1),
+				[&](Face const& g) { return visible.contains(g); }
+			);
+			(onBoundary? horizon: visible).insert(f);
+		}
+		std::set<Face> coplanarFacets {
+			coplanar.lower_bound({this, hull.m_rank-1}),
+			coplanar.end()
+		};
+		return std::tuple {visible, horizon, coplanarFacets};
 	}
 
-	std::set<Face> onPlane(Affine_Arg, int rank, Face const& plane) {
-		assert(rank < plane.m_rank);
-		std::set<Face> result {};
-		auto const simplex = plane.simplex();
-		for (Face const& f : facesOfRank(rank)) {
-			bool onPlane = stdr::all_of(f.m_indices, [&](std::size_t i) {
-				if (plane.m_rank == Coord::dimension) return true;
-				return !independent(Affine, simplex, coordinates[i]);
-			});
-			if (onPlane) result.insert(f);
+	void deleteFaces(stdr::input_range auto&& faceSet) {
+		for (Face const& f : faceSet) {
+			faces.erase(f);
 		}
-		return result;
+		faces.insert({this, -1, {}}); // The empty face is eternal.
 	}
 };
 
@@ -378,4 +375,12 @@ Polytope(FromRegular_Arg, R)
 
 template <class Coord>
 Polytope(FromRegular_Arg, std::initializer_list<Coord>)
+-> Polytope<Coord>;
+
+template <stdr::input_range R>
+Polytope(FromConvexHull_Arg, R)
+-> Polytope<stdr::range_value_t<R>>;
+
+template <class Coord>
+Polytope(FromConvexHull_Arg, std::initializer_list<Coord>)
 -> Polytope<Coord>;
